@@ -214,61 +214,6 @@ static void install_signal_handlers() {
 		perror("sigaction");
 }
 
-struct in_addr *init_iplist_whitelist(const char *whitelist_file) {
-	struct in_addr *whitelist;
-	size_t whitelist_alloc_size = 16 * sizeof(*whitelist);
-	size_t whitelist_len = 0;
-	FILE *fp;
-	char buf[512];
-
-	fp = fopen(whitelist_file, "r");
-	if (!fp) {
-		perror("Cannot read whitelist file");
-		return NULL;
-	}
-
-	whitelist = malloc(whitelist_alloc_size);
-	if (!whitelist) {
-		fprintf(stderr, "Cannot allocate memory for whitelist.\n");
-		abort();
-	}
-
-	while (fgets(buf, sizeof buf, fp) != NULL) {
-		if (buf[0] == '#' || buf[0] == '\0')
-			continue;
-
-		if (whitelist_len >= whitelist_alloc_size) {
-			whitelist_alloc_size += 16 * sizeof(*whitelist);
-			whitelist = realloc(whitelist, whitelist_alloc_size);
-			if (!whitelist) {
-				fprintf(stderr, "Cannot reallocate memory for whitelist.\n");
-				abort();
-			}
-		}
-
-		if (inet_pton(AF_INET, buf, whitelist + whitelist_len) == 1)
-			++whitelist_len;
-		else
-			fprintf(stderr, "Unknown IP whitelist line: %s\n", buf);
-	}
-
-	fclose(fp);
-
-	if (whitelist_len == 0) {
-		free(whitelist);
-		return NULL;
-	} else if (whitelist_len != whitelist_alloc_size) {
-		whitelist = realloc(whitelist, whitelist_len * sizeof(*whitelist));
-		if (!whitelist) {
-			fprintf(stderr, "Cannot trim memory for whitelist.\n");
-			abort();
-		}
-	}
-
-	iplist_whitelist_set(whitelist, whitelist_len);
-	return whitelist;
-}
-
 int main(int argc, char **argv) {
 	const char *regexes[] = {
 		"Invalid user .{0,100} from " IP_PATTERN "$",
@@ -282,17 +227,14 @@ int main(int argc, char **argv) {
 	};
 	int patterns_count = sizeof(regexes) / sizeof(*regexes);
 	pcre **patterns;
-	const char *logname, *whitelist_file = NULL;
-	struct in_addr *whitelist = NULL;
+	const char *logname;
 	FILE *fp;
 
 	if (argc < 2) {
-		fprintf(stderr, "Usage: %s log-pipe-file [whitelist file]\n", argv[0]);
+		fprintf(stderr, "Usage: %s log-pipe-file\n", argv[0]);
 		return 2;
 	}
 	logname = argv[1];
-	if (argc >= 3)
-		whitelist_file = argv[2];
 
 	if (!access(IPSET_PROGRAM, X_OK)) {
 		fprintf(stderr, "Program %s is not available: %s\n",
@@ -304,8 +246,6 @@ int main(int argc, char **argv) {
 		return 2;
 
 	install_signal_handlers();
-	if (whitelist_file)
-		whitelist = init_iplist_whitelist(whitelist_file);
 	patterns = compile_patterns(regexes, patterns_count);
 
 	while (active) {
@@ -319,8 +259,6 @@ int main(int argc, char **argv) {
 	}
 
 	fclose(fp);
-	if (whitelist)
-		free(whitelist);
 	free_patterns(patterns, patterns_count);
 	if (unlink(logname) < 0)
 		perror("Cannot remove log pipe");

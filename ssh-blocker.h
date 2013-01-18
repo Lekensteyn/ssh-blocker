@@ -27,7 +27,5 @@
 void iplist_block(const struct in_addr addr);
 void iplist_accept(const struct in_addr addr);
 
-void iplist_whitelist_set(struct in_addr *addr, size_t addr_count);
-
 void do_block(const struct in_addr addr);
 void do_unblock(const struct in_addr addr);

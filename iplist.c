@@ -25,8 +25,6 @@ typedef struct {
 #endif
 } ip_entry;
 
-static addr_type *whitelist = NULL;
-static size_t whitelist_len;
 static ip_entry entries[IPLIST_LENGTH];
 static size_t pos = 0;
 
@@ -55,22 +53,8 @@ static ip_entry *next_available(void) {
 	return entry;
 }
 
-static int whitelist_cmp(const void *a, const void *b) {
-	return ADDR_EQUALS(*(addr_type *) a, *(addr_type *) b);
-}
-
-static bool is_whitelisted(addr_type addr) {
-	if (whitelist == NULL)
-		return false;
-
-	return bsearch(&addr, whitelist, whitelist_len, sizeof(*whitelist), whitelist_cmp) != NULL;
-}
-
 void iplist_block(const struct in_addr addr) {
 	ip_entry *entry;
-
-	if (is_whitelisted(addr))
-		return;
 
 	entry = find(addr);
 	if (!entry) {
@@ -92,20 +76,10 @@ void iplist_block(const struct in_addr addr) {
 void iplist_accept(const struct in_addr addr) {
 	ip_entry *entry = find(addr);
 
-	if (is_whitelisted(addr))
-		return;
-
 	if (entry) {
 		if (entry->matches >= MATCH_THRESHOLD)
 			do_unblock(addr);
 
 		memset(entry, 0, sizeof(*entry));
 	}
-}
-
-void iplist_whitelist_set(struct in_addr *addrs, size_t addr_count) {
-	whitelist_len = addr_count;
-	whitelist = addrs;
-	if (addr_count)
-		qsort(whitelist, whitelist_len, sizeof(*whitelist), whitelist_cmp);
 }
