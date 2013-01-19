@@ -4,8 +4,6 @@
  *
  * Copyright (C) 2013 Peter Wu <lekensteyn@gmail.com>
  * Licensed under GPLv3 or any latter version.
- *
- * Wishlist: capabilities should get support for inherited process capabilities.
  */
 
 #include <stdlib.h>

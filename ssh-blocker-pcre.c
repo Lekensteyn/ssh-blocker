@@ -4,10 +4,8 @@
  *
  * Copyright (C) 2013 Peter Wu <lekensteyn@gmail.com>
  * Licensed under GPLv3 or any latter version.
- *
- * Wishlist: capabilities should get support for inherited process capabilities.
  */
-
+#define _GNU_SOURCE
 #include <pcre.h>
 #include <unistd.h>
 #include <sys/types.h>
@@ -15,6 +13,10 @@
 #include <errno.h>
 #include <signal.h>
 #include "ssh-blocker.h"
+
+#include <sys/capability.h>
+#include <pwd.h>
+#include <sys/prctl.h>
 
 /* callback when an IP address is matched */
 typedef void (*fn_action_t)(struct in_addr addr, char *ip);
@@ -215,6 +217,67 @@ static void install_signal_handlers() {
 		perror("sigaction(SIGINT)");
 }
 
+/* Drop privileges and become "user" */
+int drop_privileges(const char *user) {
+	/* CAP_NET_ADMIN: necessary for ipset; CAP_SETUID, CAP_SETGID: setresgid/setresguid */
+	cap_value_t capability[] = { CAP_NET_ADMIN, CAP_SETUID, CAP_SETGID };
+	const int ncaps =  3;
+	cap_t caps;
+	struct passwd *passwd;
+	uid_t uid;
+	gid_t gid;
+
+	passwd = getpwnam(user);
+	if (!passwd) {
+		fprintf(stderr, "Cannot find user %s\n", user);
+		return -1;
+	}
+	uid = passwd->pw_uid;
+	gid = passwd->pw_gid;
+
+	/* TODO: check capabilities and userid so program does not need to start as root */
+
+	caps = cap_get_proc();
+	if (!caps) {
+		perror("Failed to get capabilities");
+		return -1;
+	}
+
+	cap_clear(caps);
+	cap_set_flag(caps, CAP_EFFECTIVE, ncaps, capability, CAP_SET);
+	cap_set_flag(caps, CAP_PERMITTED, ncaps, capability, CAP_SET);
+	if (cap_set_proc(caps)) {
+		perror("Failed to lower capabilities");
+		cap_free(caps);
+		return -1;
+	}
+
+	/* keep caps after dropping from root */
+	if (prctl(PR_SET_KEEPCAPS, 1L)) {
+		perror("Failed to keep capabilities between user switches");
+		cap_free(caps);
+		return -1;
+	}
+
+	if (setresgid(gid, gid, gid) || setresuid(uid, uid, uid)) {
+		perror("Failed to change uid/gid");
+		cap_free(caps);
+		return -1;
+	}
+
+	cap_clear(caps);
+	cap_set_flag(caps, CAP_EFFECTIVE, 1, capability, CAP_SET);
+	cap_set_flag(caps, CAP_PERMITTED, 1, capability, CAP_SET);
+	if (cap_set_proc(caps)) {
+		perror("Failed to drop more capabilities");
+		cap_free(caps);
+		return -1;
+	}
+
+	cap_free(caps);
+	return 0;
+}
+
 int main(int argc, char **argv) {
 	const char *regexes[] = {
 		"Invalid user .{0,100} from " IP_PATTERN "$",
@@ -228,19 +291,23 @@ int main(int argc, char **argv) {
 	};
 	int patterns_count = sizeof(regexes) / sizeof(*regexes);
 	pcre **patterns;
-	const char *logname;
+	const char *logname, *username;
 	FILE *fp;
 
-	if (argc < 2) {
-		fprintf(stderr, "Usage: %s log-pipe-file\n", argv[0]);
+	if (argc < 3) {
+		fprintf(stderr, "Usage: %s log-pipe-file username\n", argv[0]);
 		return 2;
 	}
 	logname = argv[1];
+	username = argv[2];
 
 	if (!blocker_init())
 		return 1;
 
 	if ((fp = open_log(logname)) == NULL)
+		return 2;
+
+	if (drop_privileges(username) < 0)
 		return 2;
 
 	install_signal_handlers();

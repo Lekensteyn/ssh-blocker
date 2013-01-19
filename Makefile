@@ -1,7 +1,7 @@
 
 SRC ?= ssh-blocker-pcre.c iplist.c ipset.c
 OBJ ?= ssh-blocker-pcre
-LIBS ?= -lpcre -lipset
+LIBS ?= -lpcre -lipset -lcap
 CFLAGS ?= -O2 -g
 
 $(OBJ): $(SRC)
