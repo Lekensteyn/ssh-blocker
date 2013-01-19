@@ -236,11 +236,7 @@ int main(int argc, char **argv) {
 	}
 	logname = argv[1];
 
-	if (!access(IPSET_PROGRAM, X_OK)) {
-		fprintf(stderr, "Program %s is not available: %s\n",
-				IPSET_PROGRAM, strerror(errno));
-		return 1;
-	}
+	blocker_init();
 
 	if ((fp = open_log(logname)) == NULL)
 		return 2;
@@ -258,6 +254,7 @@ int main(int argc, char **argv) {
 		}
 	}
 
+	blocker_fini();
 	fclose(fp);
 	free_patterns(patterns, patterns_count);
 	if (unlink(logname) < 0)

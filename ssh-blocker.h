@@ -13,6 +13,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <arpa/inet.h>
+#include <stdio.h>
+#include <stdbool.h>
 
 /* size of the IP address list */
 #define IPLIST_LENGTH 512
@@ -20,12 +22,14 @@
 /* With this number of matches, an IP address will be blocked. range 1-254 */
 #define MATCH_THRESHOLD 5
 
-#define IPSET_PROGRAM "/usr/sbin/ipset"
 /* used for ipset and iptables match of ip addresses */
-#define IPSET_SETNAME "ssh-blocklist"
+#define SETNAME_BLACKLIST "ssh-blocklist"
 
 void iplist_block(const struct in_addr addr);
 void iplist_accept(const struct in_addr addr);
 
 void do_block(const struct in_addr addr);
 void do_unblock(const struct in_addr addr);
+bool is_blocked(const struct in_addr addr);
+void blocker_init(void);
+void blocker_fini(void);
