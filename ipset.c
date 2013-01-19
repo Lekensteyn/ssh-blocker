@@ -23,7 +23,7 @@ static struct ipset_session *session;
  */
 static bool
 try_ipset_cmd(enum ipset_cmd cmd, const char *setname,
-		const struct in_addr *addr) {
+		const struct in_addr *addr, uint32_t timeout) {
 	const struct ipset_type *type;
 	uint8_t family;
 	int r;
@@ -40,6 +40,8 @@ try_ipset_cmd(enum ipset_cmd cmd, const char *setname,
 	family = NFPROTO_IPV4;
 	ipset_session_data_set(session, IPSET_OPT_FAMILY, &family);
 	ipset_session_data_set(session, IPSET_OPT_IP, addr);
+	if (timeout)
+		ipset_session_data_set(session, IPSET_OPT_TIMEOUT, &timeout);
 
 	r = ipset_cmd(session, cmd, /*lineno*/ 0);
 	/* assume that errors always occur if NOT in set. To do it otherwise,
@@ -48,7 +50,7 @@ try_ipset_cmd(enum ipset_cmd cmd, const char *setname,
 }
 
 static bool
-try_ipset_create(const char *setname, const char *typename, uint32_t timeout) {
+try_ipset_create(const char *setname, const char *typename) {
 	const struct ipset_type *type;
 	uint8_t family;
 	int r;
@@ -64,7 +66,6 @@ try_ipset_create(const char *setname, const char *typename, uint32_t timeout) {
 	}
 
 	ipset_session_data_set(session, IPSET_OPT_TYPE, type);
-	ipset_session_data_set(session, IPSET_OPT_TIMEOUT, &timeout);
 	family = NFPROTO_IPV4;
 	ipset_session_data_set(session, IPSET_OPT_FAMILY, &family);
 
@@ -79,15 +80,19 @@ has_ipset_setname(const char *setname) {
 }
 
 void do_block(const struct in_addr addr) {
-	try_ipset_cmd(IPSET_CMD_ADD, SETNAME_BLACKLIST, &addr);
+	try_ipset_cmd(IPSET_CMD_ADD, SETNAME_BLACKLIST, &addr, BLOCK_TIME);
 }
 
 void do_unblock(const struct in_addr addr) {
-	try_ipset_cmd(IPSET_CMD_DEL, SETNAME_BLACKLIST, &addr);
+	try_ipset_cmd(IPSET_CMD_DEL, SETNAME_BLACKLIST, &addr, 0);
 }
 
-bool is_blocked(const struct in_addr addr) {
-	return try_ipset_cmd(IPSET_CMD_TEST, SETNAME_BLACKLIST, &addr);
+void do_whitelist(const struct in_addr addr) {
+	try_ipset_cmd(IPSET_CMD_ADD, SETNAME_WHITELIST, &addr, WHITELIST_TIME);
+}
+
+bool is_whitelisted(const struct in_addr addr) {
+	return try_ipset_cmd(IPSET_CMD_TEST, SETNAME_WHITELIST, &addr, 0);
 }
 
 void blocker_init(void) {
@@ -103,8 +108,14 @@ void blocker_init(void) {
 	 * non-existing rule */
 	ipset_envopt_parse(session, IPSET_ENV_EXIST, NULL);
 
+	if (!has_ipset_setname(SETNAME_WHITELIST) &&
+		!try_ipset_create(SETNAME_WHITELIST, TYPENAME)) {
+		fprintf(stderr, "Failed to create %s: %s\n", SETNAME_WHITELIST,
+				ipset_session_error(session));
+		abort();
+	}
 	if (!has_ipset_setname(SETNAME_BLACKLIST) &&
-		!try_ipset_create(SETNAME_BLACKLIST, TYPENAME, BLOCK_TIME)) {
+		!try_ipset_create(SETNAME_BLACKLIST, TYPENAME)) {
 		fprintf(stderr, "Failed to create %s: %s\n", SETNAME_BLACKLIST,
 				ipset_session_error(session));
 		abort();

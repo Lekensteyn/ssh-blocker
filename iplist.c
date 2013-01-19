@@ -59,8 +59,12 @@ static ip_entry *next_available(void) {
 
 void iplist_block(const struct in_addr addr) {
 	ip_entry *entry;
-	time_t now = time(NULL);
+	time_t now;
 
+	if (is_whitelisted(addr))
+		return;
+
+	now = time(NULL);
 	entry = find(addr);
 	if (!entry) {
 		entry = next_available();
@@ -82,12 +86,17 @@ void iplist_block(const struct in_addr addr) {
 
 /* forget an IP when a succesful login is detected */
 void iplist_accept(const struct in_addr addr) {
-	ip_entry *entry = find(addr);
+	ip_entry *entry;
 
+	if (is_whitelisted(addr))
+		return;
+
+	entry = find(addr);
 	if (entry) {
 		if (entry->matches >= MATCH_THRESHOLD)
 			do_unblock(addr);
 
 		memset(entry, 0, sizeof(*entry));
 	}
+	do_whitelist(addr);
 }
