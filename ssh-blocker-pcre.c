@@ -235,7 +235,8 @@ int main(int argc, char **argv) {
 	}
 	logname = argv[1];
 
-	blocker_init();
+	if (!blocker_init())
+		return 1;
 
 	if ((fp = open_log(logname)) == NULL)
 		return 2;

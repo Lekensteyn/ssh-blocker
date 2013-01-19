@@ -50,5 +50,5 @@ void do_block(const struct in_addr addr);
 void do_unblock(const struct in_addr addr);
 void do_whitelist(const struct in_addr addr);
 bool is_whitelisted(const struct in_addr addr);
-void blocker_init(void);
+bool blocker_init(void);
 void blocker_fini(void);

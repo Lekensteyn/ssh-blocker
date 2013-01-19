@@ -95,13 +95,13 @@ bool is_whitelisted(const struct in_addr addr) {
 	return try_ipset_cmd(IPSET_CMD_TEST, SETNAME_WHITELIST, &addr, 0);
 }
 
-void blocker_init(void) {
+bool blocker_init(void) {
 	ipset_load_types();
 
 	session = ipset_session_init(printf);
 	if (!session) {
 		fprintf(stderr, "Cannot initialize ipset session.\n");
-		abort();
+		return false;
 	}
 
 	/* return success on attempting to add an existing / remove an
@@ -112,14 +112,18 @@ void blocker_init(void) {
 		!try_ipset_create(SETNAME_WHITELIST, TYPENAME)) {
 		fprintf(stderr, "Failed to create %s: %s\n", SETNAME_WHITELIST,
 				ipset_session_error(session));
-		abort();
+		ipset_session_fini(session);
+		return false;
 	}
 	if (!has_ipset_setname(SETNAME_BLACKLIST) &&
 		!try_ipset_create(SETNAME_BLACKLIST, TYPENAME)) {
 		fprintf(stderr, "Failed to create %s: %s\n", SETNAME_BLACKLIST,
 				ipset_session_error(session));
-		abort();
+		ipset_session_fini(session);
+		return false;
 	}
+
+	return true;
 }
 
 void blocker_fini(void) {
