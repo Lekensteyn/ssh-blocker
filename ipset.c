@@ -72,6 +72,12 @@ try_ipset_create(const char *setname, const char *typename, uint32_t timeout) {
 	return r == 0;
 }
 
+static bool
+has_ipset_setname(const char *setname) {
+	ipset_session_data_set(session, IPSET_SETNAME, setname);
+	return ipset_cmd(session, IPSET_CMD_HEADER, 0) == 0;
+}
+
 void do_block(const struct in_addr addr) {
 	try_ipset_cmd(IPSET_CMD_ADD, SETNAME_BLACKLIST, &addr);
 }
@@ -97,12 +103,10 @@ void blocker_init(void) {
 	 * non-existing rule */
 	ipset_envopt_parse(session, IPSET_ENV_EXIST, NULL);
 
-	/* WARNING: this call will FAIL if an existing setname exist with
-	 * different parameters (e.g. a different timeout value)! */
-	if (!try_ipset_create(SETNAME_BLACKLIST, TYPENAME, BLOCK_TIME)) {
+	if (!has_ipset_setname(SETNAME_BLACKLIST) &&
+		!try_ipset_create(SETNAME_BLACKLIST, TYPENAME, BLOCK_TIME)) {
 		fprintf(stderr, "Failed to create %s: %s\n", SETNAME_BLACKLIST,
 				ipset_session_error(session));
-		fprintf(stderr, "A setname with different parameters possibly exists.");
 		abort();
 	}
 }
