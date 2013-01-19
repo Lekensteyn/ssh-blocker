@@ -85,11 +85,11 @@ open_log(const char *filename) {
 	struct stat statbuf;
 
 	if (mkfifo(filename, S_IRUSR | S_IWUSR)) {
-		if (errno == EEXIST)
-			fprintf(stderr, "Remove the log pipe file '%s' first\n", filename);
-		else
+		/* ignore failure from an existing file */
+		if (errno != EEXIST) {
 			perror("mkfifo");
-		return NULL;
+			return NULL;
+		}
 	}
 
 	/* open R/W in order to avoid EOF */
