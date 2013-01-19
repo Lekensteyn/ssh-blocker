@@ -4,6 +4,7 @@
 #include <libipset/types.h>
 #include <libipset/session.h>
 #include <libipset/data.h>
+#include <stdint.h>
 
 static struct ipset_session *session;
 
@@ -39,6 +40,31 @@ try_ipset_cmd(enum ipset_cmd cmd, const char *setname,
 	return r == 0;
 }
 
+static bool
+try_ipset_create(const char *setname, const char *typename, uint32_t timeout) {
+	const struct ipset_type *type;
+	uint8_t family;
+	int r;
+	r = ipset_session_data_set(session, IPSET_SETNAME, setname);
+	/* since the IPSET_SETNAME option is valid, this should never fail */
+	assert(r == 0);
+
+	ipset_session_data_set(session, IPSET_OPT_TYPENAME, typename);
+
+	type = ipset_type_get(session, IPSET_CMD_CREATE);
+	if (type == NULL) {
+		return false;
+	}
+
+	ipset_session_data_set(session, IPSET_OPT_TYPE, type);
+	ipset_session_data_set(session, IPSET_OPT_TIMEOUT, &timeout);
+	family = NFPROTO_IPV4;
+	ipset_session_data_set(session, IPSET_OPT_FAMILY, &family);
+
+	r = ipset_cmd(session, IPSET_CMD_CREATE, /*lineno*/ 0);
+	return r == 0;
+}
+
 void do_block(const struct in_addr addr) {
 	try_ipset_cmd(IPSET_CMD_ADD, SETNAME_BLACKLIST, &addr);
 }
@@ -63,6 +89,15 @@ void blocker_init(void) {
 	/* return success on attempting to add an existing / remove an
 	 * non-existing rule */
 	ipset_envopt_parse(session, IPSET_ENV_EXIST, NULL);
+
+	/* WARNING: this call will FAIL if an existing setname exist with
+	 * different parameters (e.g. a different timeout value)! */
+	if (!try_ipset_create(SETNAME_BLACKLIST, TYPENAME, BLOCK_TIME)) {
+		fprintf(stderr, "Failed to create %s: %s\n", SETNAME_BLACKLIST,
+				ipset_session_error(session));
+		fprintf(stderr, "A setname with different parameters possibly exists.");
+		abort();
+	}
 }
 
 void blocker_fini(void) {
