@@ -301,14 +301,14 @@ int main(int argc, char **argv) {
 	logname = argv[1];
 	username = argv[2];
 
-	if (!blocker_init())
-		return 1;
-
 	if ((fp = open_log(logname)) == NULL)
 		return 2;
 
 	if (drop_privileges(username) < 0)
 		return 2;
+
+	if (!blocker_init())
+		return 1;
 
 	install_signal_handlers();
 	patterns = compile_patterns(regexes, patterns_count);
