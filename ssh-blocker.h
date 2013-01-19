@@ -6,7 +6,6 @@
  * Licensed under GPLv3 or any latter version.
  *
  * Wishlist: capabilities should get support for inherited process capabilities.
- * Or a ipset library should become available.
  */
 
 #include <stdlib.h>

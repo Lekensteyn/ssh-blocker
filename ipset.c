@@ -1,3 +1,10 @@
+/**
+ * Utilities for ipset management.
+ *
+ * Copyright (C) 2013 Peter Wu <lekensteyn@gmail.com>
+ * Licensed under GPLv3 or any latter version.
+ */
+
 #include "ssh-blocker.h"
 #include <unistd.h>
 #include <assert.h>
