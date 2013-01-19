@@ -209,8 +209,10 @@ static void install_signal_handlers() {
 	action.sa_handler = sa_quit;
 	sigemptyset(&action.sa_mask);
 	action.sa_flags = 0;
+	if (sigaction(SIGTERM, &action, NULL) < 0)
+		perror("sigaction(SIGTERM)");
 	if (sigaction(SIGINT, &action, NULL) < 0)
-		perror("sigaction");
+		perror("sigaction(SIGINT)");
 }
 
 int main(int argc, char **argv) {
@@ -257,8 +259,6 @@ int main(int argc, char **argv) {
 	blocker_fini();
 	fclose(fp);
 	free_patterns(patterns, patterns_count);
-	if (unlink(logname) < 0)
-		perror("Cannot remove log pipe");
 
 	return 0;
 }
