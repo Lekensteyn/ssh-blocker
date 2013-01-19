@@ -27,6 +27,11 @@
 /* used for ipset and iptables match of ip addresses */
 #define SETNAME_BLACKLIST "ssh-blocklist"
 
+/* time to remember the last failed login attempt. If the elapsed time since an
+ * entry was last updated is larger than this number of seconds, it will be
+ * removed from the entries list */
+#define REMEMBER_TIME 600
+
 /* time before unblocking in seconds */
 #define BLOCK_TIME 3600
 

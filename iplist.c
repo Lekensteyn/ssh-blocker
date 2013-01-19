@@ -6,7 +6,7 @@
  */
 
 #include "ssh-blocker.h"
-#include <stdbool.h>
+#include <time.h>
 
 #undef IP6_DATASTRUCTS
 
@@ -25,6 +25,7 @@ typedef struct in_addr addr_type;
 typedef struct {
 	addr_type addr;
 	unsigned char matches;
+	time_t last_match;
 #if 0
 	some_time_type_here ...;
 	struct ip_entry *prev;
@@ -53,26 +54,26 @@ static ip_entry *next_available(void) {
 	pos = (pos + 1) % IPLIST_LENGTH;
 	entry = &entries[pos];
 
-	/* release old block */
-	if (entry->matches >= MATCH_THRESHOLD)
-		do_unblock(entry->addr);
-
 	return entry;
 }
 
 void iplist_block(const struct in_addr addr) {
 	ip_entry *entry;
+	time_t now = time(NULL);
 
 	entry = find(addr);
 	if (!entry) {
 		entry = next_available();
 		ADDR_SET(entry->addr, addr);
 		entry->matches = 0;
+	} else if (now - entry->last_match > REMEMBER_TIME) {
+		entry->matches = 0;
 	}
 
 	/* Do not re-block when threshold is reached already */
 	if (entry->matches <= MATCH_THRESHOLD) {
 		++entry->matches;
+		entry->last_match = now;
 
 		if (entry->matches >= MATCH_THRESHOLD)
 			do_block(addr);
