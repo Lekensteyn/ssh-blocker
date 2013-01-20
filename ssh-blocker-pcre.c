@@ -11,49 +11,38 @@
 #include <sys/stat.h>
 #include <errno.h>
 #include <signal.h>
+#include <assert.h>
 #include "ssh-blocker.h"
 
 #include <sys/capability.h>
 #include <pwd.h>
 #include <sys/prctl.h>
 
-static char *
-substring(const char *str, int start, int end) {
-	size_t len = end - start;
-	char *p = malloc(len + 1);
-	if (!p) {
-		perror("malloc in substring");
-		abort();
-	}
-	memcpy(p, str + start, len);
-	p[len] = 0;
-	return p;
-}
-
-/* if a non-NULL string is returned, it must be free'd */
-static char *
+/* returns true if an IP address is matched, false otherwise */
+static bool
 find_ip(const pcre *code, const char *subject, int length, struct in_addr *addr) {
 	int rc, options = 0;
-	/* multiple of 3, first pair match whole string, next pairs are groups */
-	int ovector[3 * 8];
-	char *group1;
+	/* +1 for matching substring, a.k.a. $0 */
+	int ovector[3 * (1 + REGEX_MAX_GROUPS)];
+	char ip[INET_ADDRSTRLEN];
 
-	rc = pcre_exec(code, NULL, subject, length, 0, options, ovector, sizeof(ovector));
-	if (rc == 0) {
-		fprintf(stderr, "Not enough space to hold groups in pattern\n");
-		exit(1);
-	}
-	//printf("Number of groups including match of everything: %d\n", rc);
+	rc = pcre_exec(code, NULL, subject, length, 0, options,
+			ovector, 1 + REGEX_MAX_GROUPS);
+	/* if 0, there was not enough space... */
+	assert(rc != 0);
+
 	if (rc < 2) {
 		/* matching error, e.g. too little groups */
-		return NULL;
+		return false;
 	}
-	group1 = substring(subject, ovector[2], ovector[3]);
-	if (inet_pton(AF_INET, group1, addr) != 1) {
-		free(group1);
-		return NULL;
+
+	if (pcre_copy_named_substring(code, subject, ovector, rc, "ip",
+			ip, sizeof ip) < 0) {
+		/* Hmm, "ip" is not defined as capture group? */
+		return false;
 	}
-	return group1;
+
+	return inet_pton(AF_INET, ip, addr) == 1;
 }
 
 static FILE *
@@ -127,14 +116,12 @@ process_line(struct log_pattern *patterns,
 
 	for (i = 0; i < patterns_count; i++) {
 		struct in_addr addr;
-		char *ip = find_ip(patterns[i].pattern, str, str_len, &addr);
-		if (ip) {
+		if (find_ip(patterns[i].pattern, str, str_len, &addr)) {
 			if (patterns[i].is_whitelist) {
 				iplist_accept(addr);
 			} else {
 				iplist_block(addr);
 			}
-			free(ip);
 			break;
 		}
 	}

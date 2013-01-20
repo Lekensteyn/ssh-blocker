@@ -49,6 +49,8 @@ struct log_pattern {
 };
 size_t patterns_init(struct log_pattern **dst);
 void patterns_fini(void);
+/* maximum number of groups in regexes */
+#define REGEX_MAX_GROUPS 1
 
 void iplist_block(const struct in_addr addr);
 void iplist_accept(const struct in_addr addr);

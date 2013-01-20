@@ -7,8 +7,10 @@
 #include "ssh-blocker.h"
 
 #define IP_DIGITS "(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])"
-#define IP_PATTERN "(" IP_DIGITS "\\." IP_DIGITS "\\." IP_DIGITS "\\." IP_DIGITS ")"
+#define IP_PATTERN "(?<ip>" IP_DIGITS "\\." IP_DIGITS "\\." IP_DIGITS "\\." IP_DIGITS ")"
 
+/* Note: when introducing new groups, be sure to increase REGEX_MAX_GROUPS in
+ * ssh-blocker.h */
 static struct log_pattern matches[] = {
 	{
 		.regex = "Invalid user .{0,100} from " IP_PATTERN "$",
@@ -24,11 +26,10 @@ static size_t patterns_count = sizeof(matches) / sizeof(*matches);
 
 static pcre *
 compile(const char *pattern) {
-	int options = PCRE_ANCHORED;
+	int options = PCRE_ANCHORED | PCRE_NO_AUTO_CAPTURE;
 	const char *error;
 	int erroffset;
 	pcre *re;
-
 	re = pcre_compile(pattern, options, &error, &erroffset, NULL);
 	if (re == NULL) {
 		fprintf(stderr, "PCRE compilation failed at offset %d: %s\n", erroffset, error);
