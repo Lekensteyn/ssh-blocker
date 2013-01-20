@@ -12,6 +12,7 @@
 #include <errno.h>
 #include <signal.h>
 #include <assert.h>
+#include <sys/file.h>
 #include "ssh-blocker.h"
 
 #include <sys/capability.h>
@@ -84,6 +85,11 @@ open_log(const char *filename, uid_t uid) {
 
 		if (statbuf.st_uid != 0 && statbuf.st_uid != uid) {
 			fprintf(stderr, "Log file must be owned by root or the owner of this process\n");
+			break;
+		}
+
+		if (flock(fileno(fp), LOCK_EX | LOCK_NB) < 0) {
+			perror("Cannot lock for reading");
 			break;
 		}
 
