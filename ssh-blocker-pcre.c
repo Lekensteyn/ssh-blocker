@@ -27,7 +27,7 @@ find_ip(const pcre *code, const char *subject, int length, struct in_addr *addr)
 	char ip[INET_ADDRSTRLEN];
 
 	rc = pcre_exec(code, NULL, subject, length, 0, options,
-			ovector, 1 + REGEX_MAX_GROUPS);
+			ovector, sizeof(ovector) / sizeof(*ovector));
 	/* if 0, there was not enough space... */
 	assert(rc != 0);
 

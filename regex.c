@@ -26,7 +26,7 @@ static size_t patterns_count = sizeof(matches) / sizeof(*matches);
 
 static pcre *
 compile(const char *pattern) {
-	int options = PCRE_ANCHORED | PCRE_NO_AUTO_CAPTURE;
+	int options = PCRE_NO_AUTO_CAPTURE;
 	const char *error;
 	int erroffset;
 	pcre *re;
