@@ -208,7 +208,9 @@ int main(int argc, char **argv) {
 	gid_t gid;
 
 	if (argc < 3) {
-		fprintf(stderr, "Usage: %s log-pipe-file username\n", argv[0]);
+		printf("Usage: %s log-pipe-file username\n", argv[0]);
+		puts("Version: " VERSION " built on " __DATE__);
+		puts("Copyright (c) 2013 Peter Wu");
 		return 2;
 	}
 	logname = argv[1];
