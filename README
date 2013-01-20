@@ -102,7 +102,7 @@ USAGE
     - Recommended: add your own IP addresses to the ssh-whitelist. For example,
       if your IP is 203.0.113.1:
 
-        ipset add ssh-whitelist 203.0.113.1
+        ipset -exist add ssh-whitelist 203.0.113.1 timeout 0
 
       Since the the ipsets are created with no timeout by default, this will be
       permanently saved (well, as long as you do not destroy or flush the sets).
@@ -111,8 +111,8 @@ USAGE
     -N ssh
     -A INPUT -p tcp --dport 22 -j ssh
     # Apply ssh-blocker whitelist and blacklists
-    -A ssh -m set --match-set ssh-blocklist -j ACCEPT
-    -A ssh -m set --match-set ssh-whitelist -j DROP
+    -A ssh -m set --match-set ssh-blocklist src -j ACCEPT
+    -A ssh -m set --match-set ssh-whitelist src -j DROP
     # Whatever you would normally add for limiting SSH connection attempts
     -A ssh -m recent --name ssh --update --seconds 60 --hitcount 10 -j DROP
     -A ssh -m recent --name ssh --set
