@@ -68,7 +68,12 @@ USAGE
 
     The command is invoked as follows:
 
-        ssh-blocker log-pipe-file username
+        ssh-blocker -d log-pipe-file username
+
+    "-d" is optional, it causes the program to daemonize. This happens just
+    before log entries are read, so any errors in opening the fifo, dropping
+    privileges can be caught earlier. Note that "-d" can be specified only as
+    the first argument, getopt is not used for now.
 
     "log-pipe-file" must be replaced by the path to a named pipe. If it does not
     exist at start-up, it will be created with permissions 0600 (read/write for

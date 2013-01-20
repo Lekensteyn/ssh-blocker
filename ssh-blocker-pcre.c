@@ -199,6 +199,8 @@ drop_privileges(uid_t uid, gid_t gid) {
 }
 
 int main(int argc, char **argv) {
+	const char *program = argv[0];
+	bool daemonize = false;
 	size_t patterns_count;
 	struct log_pattern *patterns;
 	const char *logname, *username;
@@ -207,8 +209,14 @@ int main(int argc, char **argv) {
 	uid_t uid;
 	gid_t gid;
 
+	if (argc > 2 && strcmp(argv[1], "-d") == 0) {
+		daemonize = true;
+		--argc;
+		++argv;
+	}
+
 	if (argc < 3) {
-		printf("Usage: %s log-pipe-file username\n", argv[0]);
+		printf("Usage: %s log-pipe-file username\n", program);
 		puts(PACKAGE_STRING " built on " __DATE__);
 		puts("Copyright (c) 2013 Peter Wu");
 		return 2;
@@ -233,10 +241,16 @@ int main(int argc, char **argv) {
 	if (!blocker_init())
 		return 1;
 
-	install_signal_handlers();
 	patterns_count = patterns_init(&patterns);
 	if (!patterns_count)
 		return 1;
+
+	if (daemonize && !daemon(0, 0)) {
+		perror("Failed to daemonize");
+		return 1;
+	}
+
+	install_signal_handlers();
 
 	while (active) {
 		char str[1024];
