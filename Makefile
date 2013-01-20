@@ -1,5 +1,5 @@
 
-SRC ?= ssh-blocker-pcre.c iplist.c ipset.c
+SRC ?= ssh-blocker-pcre.c iplist.c ipset.c regex.c
 OBJ ?= ssh-blocker
 LIBS ?= -lpcre -lipset -lcap
 CFLAGS ?= -O2 -g -D_FORTIFY_SOURCE=2 -pie -fPIE -Wl,-z,relro,-z,now

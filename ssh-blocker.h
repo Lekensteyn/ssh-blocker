@@ -12,6 +12,7 @@
 #include <arpa/inet.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <pcre.h>
 
 /* size of the IP address list */
 #define IPLIST_LENGTH 512
@@ -40,6 +41,14 @@
 
 /* time before unblocking in seconds. See also WHITELIST_TIME */
 #define BLOCK_TIME 3600
+
+struct log_pattern {
+	const char *regex;
+	pcre *pattern;
+	bool is_whitelist;
+};
+size_t patterns_init(struct log_pattern **dst);
+void patterns_fini(void);
 
 void iplist_block(const struct in_addr addr);
 void iplist_accept(const struct in_addr addr);

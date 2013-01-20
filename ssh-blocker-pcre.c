@@ -6,7 +6,6 @@
  * Licensed under GPLv3 or any latter version.
  */
 #define _GNU_SOURCE
-#include <pcre.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -17,28 +16,6 @@
 #include <sys/capability.h>
 #include <pwd.h>
 #include <sys/prctl.h>
-
-/* callback when an IP address is matched */
-typedef void (*fn_action_t)(struct in_addr addr, char *ip);
-
-#define IP_DIGITS "(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])"
-#define IP_PATTERN "(" IP_DIGITS "\\." IP_DIGITS "\\." IP_DIGITS "\\." IP_DIGITS ")"
-
-static pcre *
-compile(const char *pattern) {
-	int options = PCRE_ANCHORED;
-	const char *error;
-	int erroffset;
-	pcre *re;
-
-	re = pcre_compile(pattern, options, &error, &erroffset, NULL);
-	if (re == NULL) {
-		fprintf(stderr, "PCRE compilation failed at offset %d: %s\n", erroffset, error);
-		exit(1);
-	}
-
-	return re;
-}
 
 static char *
 substring(const char *str, int start, int end) {
@@ -127,33 +104,6 @@ open_log(const char *filename) {
 	return NULL;
 }
 
-static pcre **
-compile_patterns(const char **regex, int count) {
-	int i;
-	pcre **patterns;
-
-	patterns = malloc(count * sizeof(pcre *));
-	if (!patterns) {
-		perror("malloc");
-		abort();
-	}
-	for (i = 0; i < count; i++) {
-		patterns[i] = compile(regex[i]);
-	}
-
-	return patterns;
-}
-
-static void
-free_patterns(pcre **patterns, int patterns_count) {
-	int i;
-
-	for (i = 0; i < patterns_count; i++) {
-		pcre_free(patterns[i]);
-	}
-	free(patterns);
-}
-
 static int read_line(FILE *fp, char *buf, size_t buf_size) {
 	int len;
 
@@ -169,29 +119,21 @@ static int read_line(FILE *fp, char *buf, size_t buf_size) {
 	return len;
 }
 
-static void
-act_block(struct in_addr addr, char *ip) {
-	printf("Blocked: %s\n", ip);
-	iplist_block(addr);
-}
-
-static void
-act_accept(struct in_addr addr, char *ip) {
-	printf("Accepted: %s\n", ip);
-	iplist_accept(addr);
-}
-
 /* str does not need to be NUL-terminated */
 static void
-process_line(pcre **patterns, fn_action_t *actions, int patterns_count,
-		char *str, size_t str_len) {
+process_line(struct log_pattern *patterns,
+		int patterns_count, char *str, size_t str_len) {
 	int i;
 
 	for (i = 0; i < patterns_count; i++) {
 		struct in_addr addr;
-		char *ip = find_ip(patterns[i], str, str_len, &addr);
+		char *ip = find_ip(patterns[i].pattern, str, str_len, &addr);
 		if (ip) {
-			actions[i](addr, ip);
+			if (patterns[i].is_whitelist) {
+				iplist_accept(addr);
+			} else {
+				iplist_block(addr);
+			}
 			free(ip);
 			break;
 		}
@@ -218,7 +160,8 @@ static void install_signal_handlers() {
 }
 
 /* Drop privileges and become "user" */
-int drop_privileges(const char *user) {
+static int
+drop_privileges(const char *user) {
 	/* CAP_NET_ADMIN: necessary for ipset; CAP_SETUID, CAP_SETGID: setresgid/setresguid */
 	cap_value_t capability[] = { CAP_NET_ADMIN, CAP_SETUID, CAP_SETGID };
 	const int ncaps =  3;
@@ -279,18 +222,8 @@ int drop_privileges(const char *user) {
 }
 
 int main(int argc, char **argv) {
-	const char *regexes[] = {
-		"Invalid user .{0,100} from " IP_PATTERN "$",
-		"User .{0,100} from " IP_PATTERN " not allowed because not listed in AllowUsers$",
-		"Accepted publickey for .{0,100} from " IP_PATTERN " port [0-9]{1,5} ssh2$"
-	};
-	fn_action_t actions[] = {
-		act_block,
-		act_block,
-		act_accept,
-	};
-	int patterns_count = sizeof(regexes) / sizeof(*regexes);
-	pcre **patterns;
+	size_t patterns_count;
+	struct log_pattern *patterns;
 	const char *logname, *username;
 	FILE *fp;
 
@@ -311,7 +244,9 @@ int main(int argc, char **argv) {
 		return 1;
 
 	install_signal_handlers();
-	patterns = compile_patterns(regexes, patterns_count);
+	patterns_count = patterns_init(&patterns);
+	if (!patterns_count)
+		return 1;
 
 	while (active) {
 		char str[1024];
@@ -319,13 +254,13 @@ int main(int argc, char **argv) {
 
 		str_len = read_line(fp, str, sizeof str);
 		if (str_len > 0) {
-			process_line(patterns, actions, patterns_count, str, str_len);
+			process_line(patterns, patterns_count, str, str_len);
 		}
 	}
 
 	blocker_fini();
 	fclose(fp);
-	free_patterns(patterns, patterns_count);
+	patterns_fini();
 
 	return 0;
 }
