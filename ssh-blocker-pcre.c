@@ -46,7 +46,7 @@ find_ip(const pcre *code, const char *subject, int length, struct in_addr *addr)
 }
 
 static FILE *
-open_log(const char *filename) {
+open_log(const char *filename, uid_t uid) {
 	FILE *fp;
 	struct stat statbuf;
 
@@ -81,7 +81,7 @@ open_log(const char *filename) {
 			break;
 		}
 
-		if (statbuf.st_uid != 0 && statbuf.st_uid != getuid()) {
+		if (statbuf.st_uid != 0 && statbuf.st_uid != uid) {
 			fprintf(stderr, "Log file must be owned by root or the owner of this process\n");
 			break;
 		}
@@ -148,22 +148,11 @@ static void install_signal_handlers() {
 
 /* Drop privileges and become "user" */
 static int
-drop_privileges(const char *user) {
+drop_privileges(uid_t uid, gid_t gid) {
 	/* CAP_NET_ADMIN: necessary for ipset; CAP_SETUID, CAP_SETGID: setresgid/setresguid */
 	cap_value_t capability[] = { CAP_NET_ADMIN, CAP_SETUID, CAP_SETGID };
 	const int ncaps =  3;
 	cap_t caps;
-	struct passwd *passwd;
-	uid_t uid;
-	gid_t gid;
-
-	passwd = getpwnam(user);
-	if (!passwd) {
-		fprintf(stderr, "Cannot find user %s\n", user);
-		return -1;
-	}
-	uid = passwd->pw_uid;
-	gid = passwd->pw_gid;
 
 	caps = cap_get_proc();
 	if (!caps) {
@@ -213,6 +202,9 @@ int main(int argc, char **argv) {
 	struct log_pattern *patterns;
 	const char *logname, *username;
 	FILE *fp;
+	struct passwd *passwd;
+	uid_t uid;
+	gid_t gid;
 
 	if (argc < 3) {
 		fprintf(stderr, "Usage: %s log-pipe-file username\n", argv[0]);
@@ -221,10 +213,18 @@ int main(int argc, char **argv) {
 	logname = argv[1];
 	username = argv[2];
 
-	if ((fp = open_log(logname)) == NULL)
+	passwd = getpwnam(username);
+	if (!passwd) {
+		fprintf(stderr, "Cannot find user %s\n", username);
+		return 2;
+	}
+	uid = passwd->pw_uid;
+	gid = passwd->pw_gid;
+
+	if ((fp = open_log(logname, uid)) == NULL)
 		return 2;
 
-	if (drop_privileges(username) < 0)
+	if (drop_privileges(uid, gid) < 0)
 		return 2;
 
 	if (!blocker_init())
