@@ -113,10 +113,25 @@ USAGE
     -A ssh -m recent --name ssh --set
     -A ssh -j ACCEPT
 
+SECURITY
+    This program was originally created to reduce syslog spam. It can also be
+    used as a replacement for Fail2ban or DenyHosts if you do not need fancy
+    features. As with any program that monitors syslog, note that syslog can
+    usually be written by everyone. That means that rogue local users can
+    insert bogus entries into the syslog. It is as trivial as:
+
+        logger -p auth.notice -t sshd[1337] '...'
+    Therefore, use this program with care. Add known good IP addresses to the
+    whitelist and do not let untrusted users to your system.
+
+    When the program is run as root, it tightens its capabilities to
+    CAP_NET_ADMIN (for ipset) and CAP_SETUID+CAP_SETGID (for changing users).
+    Then it changes to the user as specified in the command line arguments. When
+    the user has succesfully changed its real, effective and saved uid/gid, it
+    will further tighten its privileges to include CAP_NET_ADMIN only. Note that
+    the log file is created and/ or opened before changing users.
+
 TODO
-    - The program must start as root for being able to write a log pipe file to
-      privileged locations (for example, /var/run/) and getting the
-      CAP_NET_ADMIN capability for being able to use ipset to manipulate ipsets.
     - IPv6 is not supported (yet).
     - Host name lookups for log entries are not supported. Set UseDNS to no in
       your sshd configuration.
