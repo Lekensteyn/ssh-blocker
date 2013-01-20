@@ -52,6 +52,7 @@ try_ipset_cmd(enum ipset_cmd cmd, const char *setname,
 static bool
 try_ipset_create(const char *setname, const char *typename) {
 	const struct ipset_type *type;
+	uint32_t timeout;
 	uint8_t family;
 	int r;
 	r = ipset_session_data_set(session, IPSET_SETNAME, setname);
@@ -65,6 +66,8 @@ try_ipset_create(const char *setname, const char *typename) {
 		return false;
 	}
 
+	timeout = 0; /* timeout support, but default to infinity */
+	ipset_session_data_set(session, IPSET_OPT_TIMEOUT, &timeout);
 	ipset_session_data_set(session, IPSET_OPT_TYPE, type);
 	family = NFPROTO_IPV4;
 	ipset_session_data_set(session, IPSET_OPT_FAMILY, &family);
