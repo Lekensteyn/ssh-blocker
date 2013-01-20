@@ -1,0 +1,134 @@
+ssh-blocker
+
+NAME
+    ssh-blocker - read a log pipe and block attacks with ipset
+
+OVERVIEW
+    ssh-blocker is a program that reads log lines from a named pipe (FIFO) and
+    tries to find IP addresses in lines containing login attempts. On a
+    successful login attempt, the address is added to a whitelist. When a
+    certain number of invalid login attempts is reached within a pre-defined
+    period, the address will be added to a blacklist.
+
+    The whitelist and blacklists are stored with ipset[1], a relevant iptables
+    rule must exist that take care of it. Using ipset, the blocked address will
+    expire after some time.
+
+REQUIREMENTS
+    This program needs the following libraries:
+    - libcap - for dropping privileges when running as root
+    - libpcre - for matching log lines
+    - libipset - for keeping a blacklist and whitelist of IP addresses
+
+    The following programs are recommended:
+    - iptables - for actual allowing or denying access based on ipset lists.
+    - rsyslog - for writing log messages to the named pipe (FIFO).
+    - OpenSSH - the service to protect by reading its logs.
+
+    Debian Wheezy has been used for testing. Older versions of the above
+    software may also work, but is no guaranteed.
+
+CONFIGURATION
+    The file ssh-blocker.h can be changed to adapt to your configuration. Some
+    interesting defaults are shown below:
+    - MATCH_THRESHOLD - After 5 invalid login attempts, the IP is blocked.
+    - SETNAME_WHITELIST and SETNAME_BLACKLIST - The names of the blacklist as
+      used with ipset (and which can be used with iptables). Defaults to
+      "ssh-whitelist" and "ssh-blacklist" respectively.
+    - WHITELIST_TIME - After a successful login attempt, you are unblocked for
+      3600 seconds (one hour) (in which you can perform as many invalid login
+      attempts as you want).
+    - BLOCK_TIME - If an IP address is blocked, it will last 3600 seconds (one
+      hour).
+
+    For more options, see the comments in ssh-blocker.h.
+
+    Edit your sshd configuration (/etc/ssh/sshd_config) and set "UseDNS no".
+    This will prevent IP addresses from being resolved to hostnames. Reload the
+    SSH configuration thereafter.
+
+    Assuming the named pipe to be located at /run/ssh-blocker.fifo, create a new
+    rsyslog configuration file (/etc/rsyslog.d/ssh-blocker.conf) containing:
+
+        :programname,isequal,"sshd" |/run/ssh-blocker.fifo
+
+    For best security, create a new system user, say "ssh-blocker". Its shell
+    can be /sbin/nologin with /nonexistent as home directory.
+
+    To finish, you need to perform actions in the correct order and add iptables
+    rules. Continue reading the USAGE section.
+
+USAGE
+    There are some ways to set-up this program:
+    - Manually create a FIFO before starting rsyslog, start this program
+      thereafter. Alternative: start this program followed by rsyslog.
+    - Manually create the whitelist and blacklist ipsets, set iptables rules and
+      start this program. Alternative: start this program and set iptables
+      rules thereafter.
+
+    The command is invoked as follows:
+
+        ssh-blocker log-pipe-file username
+
+    "log-pipe-file" must be replaced by the path to a named pipe. If it does not
+    exist at start-up, it will be created with permissions 0600 (read/write for
+    owner only) under the user and group the program was started with. If the
+    file already exists, it must be a FIFO that is owned by root (or the user
+    that started this program) and not be world-writable.
+
+    "username" is the user under which the program should run. Do not run this
+    program under someone like "nobody" because all "nobody" users can kill this
+    program, write junk to the FIFO or ptrace it if settings/permissions allow
+    it.
+
+    Suggested start-up order:
+    - Start this program before rsyslog:
+        ssh-blocker /run/ssh-blocker.fifo ssh-blocker
+    - (rsyslog starts here)
+
+    When the iptables rules are loaded:
+    - Create the whitelist and blacklist ipsets with timeout support (do not
+      fail if the set has been created before):
+        ipset -exist create ssh-whitelist hash:ip timeout 0
+        ipset -exist create ssh-blocklist hash:ip timeout 0
+    - Use iptables-restore to apply rules. An example configuration that first
+      applies the whitelist, then the blacklist and finally limits connection
+      attempts to 10 per minute is shown below this list.
+    - Recommended: add your own IP addresses to the ssh-whitelist. For example,
+      if your IP is 203.0.113.1:
+
+        ipset add ssh-whitelist 203.0.113.1
+
+      Since the the ipsets are created with no timeout by default, this will be
+      permanently saved (well, as long as you do not destroy or flush the sets).
+
+    An example ipset ruleset for SSH:
+    -N ssh
+    -A INPUT -p tcp --dport 22 -j ssh
+    # Apply ssh-blocker whitelist and blacklists
+    -A ssh -m set --match-set ssh-blocklist -j ACCEPT
+    -A ssh -m set --match-set ssh-whitelist -j DROP
+    # Whatever you would normally add for limiting SSH connection attempts
+    -A ssh -m recent --name ssh --update --seconds 60 --hitcount 10 -j DROP
+    -A ssh -m recent --name ssh --set
+    -A ssh -j ACCEPT
+
+TODO
+    - The program must start as root for being able to write a log pipe file to
+      privileged locations (for example, /var/run/) and getting the
+      CAP_NET_ADMIN capability for being able to use ipset to manipulate ipsets.
+    - IPv6 is not supported (yet).
+    - Host name lookups for log entries are not supported. Set UseDNS to no in
+      your sshd configuration.
+
+AUTHORS
+    Written by Peter Wu.
+
+REPORTING BUGS
+    Report bugs to Peter Wu <lekensteyn@gmail.com>.
+
+COPYRIGHT
+    Copyright (c) 2013 Peter Wu. License GPLv3+: GNU GPL version 3 or later
+    <http://gnu.org/licenses/gpl.html>. This is free software: you are free to
+    change and redistribute it. There is NO WARRANTY, to the extent permitted by
+    law.
