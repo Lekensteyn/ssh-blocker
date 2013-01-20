@@ -209,7 +209,7 @@ int main(int argc, char **argv) {
 
 	if (argc < 3) {
 		printf("Usage: %s log-pipe-file username\n", argv[0]);
-		puts("Version: " VERSION " built on " __DATE__);
+		puts(PACKAGE_STRING " built on " __DATE__);
 		puts("Copyright (c) 2013 Peter Wu");
 		return 2;
 	}
