@@ -165,28 +165,28 @@ drop_privileges(const char *user) {
 	uid = passwd->pw_uid;
 	gid = passwd->pw_gid;
 
-	/* TODO: check capabilities and userid so program does not need to start as root */
-
 	caps = cap_get_proc();
 	if (!caps) {
 		perror("Failed to get capabilities");
 		return -1;
 	}
 
-	cap_clear(caps);
-	cap_set_flag(caps, CAP_EFFECTIVE, ncaps, capability, CAP_SET);
-	cap_set_flag(caps, CAP_PERMITTED, ncaps, capability, CAP_SET);
-	if (cap_set_proc(caps)) {
-		perror("Failed to lower capabilities");
-		cap_free(caps);
-		return -1;
-	}
+	if (getuid() != uid) {
+		cap_clear(caps);
+		cap_set_flag(caps, CAP_EFFECTIVE, ncaps, capability, CAP_SET);
+		cap_set_flag(caps, CAP_PERMITTED, ncaps, capability, CAP_SET);
+		if (cap_set_proc(caps)) {
+			perror("Failed to lower capabilities");
+			cap_free(caps);
+			return -1;
+		}
 
-	/* keep caps after dropping from root */
-	if (prctl(PR_SET_KEEPCAPS, 1L)) {
-		perror("Failed to keep capabilities between user switches");
-		cap_free(caps);
-		return -1;
+		/* keep caps after dropping from root */
+		if (prctl(PR_SET_KEEPCAPS, 1L)) {
+			perror("Failed to keep capabilities between user switches");
+			cap_free(caps);
+			return -1;
+		}
 	}
 
 	if (setresgid(gid, gid, gid) || setresuid(uid, uid, uid)) {
