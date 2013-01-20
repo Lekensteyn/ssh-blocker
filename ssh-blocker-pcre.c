@@ -18,7 +18,8 @@
 #include <pwd.h>
 #include <sys/prctl.h>
 
-/* returns true if an IP address is matched, false otherwise */
+/* returns true if a valid IP address is matched, false otherwise. 0.0.0.0 is
+ * considered an invalid IP address */
 static bool
 find_ip(const pcre *code, const char *subject, int length, struct in_addr *addr) {
 	int rc, options = 0;
@@ -42,7 +43,7 @@ find_ip(const pcre *code, const char *subject, int length, struct in_addr *addr)
 		return false;
 	}
 
-	return inet_pton(AF_INET, ip, addr) == 1;
+	return inet_pton(AF_INET, ip, addr) == 1 && addr->s_addr != 0;
 }
 
 static FILE *
