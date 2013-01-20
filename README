@@ -135,6 +135,10 @@ TODO
     - IPv6 is not supported (yet).
     - Host name lookups for log entries are not supported. Set UseDNS to no in
       your sshd configuration.
+    - When over IPLIST_LENGTH (currently 512) different IP addresses are shown
+      in the logs, no block will be performed as old entries are overwritten.
+      This should only be an issue when a botnet is attacking you. With spoofed
+      IP addresses, you have different issues.
 
 AUTHORS
     Written by Peter Wu.
