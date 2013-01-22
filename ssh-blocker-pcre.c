@@ -251,7 +251,7 @@ int main(int argc, char **argv) {
 	if (!patterns_count)
 		return 1;
 
-	if (daemonize && !daemon(0, 0)) {
+	if (daemonize && daemon(0, 0)) {
 		perror("Failed to daemonize");
 		return 1;
 	}
