@@ -42,6 +42,10 @@
 /* time before unblocking in seconds. See also WHITELIST_TIME */
 #define BLOCK_TIME 3600
 
+int log_open(uid_t uid, const char *filename);
+int log_read_line(char *buf, size_t buf_size);
+void log_close(void);
+
 struct log_pattern {
 	const char *regex;
 	pcre *pattern;

@@ -7,12 +7,9 @@
  */
 #define _GNU_SOURCE
 #include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <errno.h>
 #include <signal.h>
 #include <assert.h>
-#include <sys/file.h>
 #include "ssh-blocker.h"
 
 #include <sys/capability.h>
@@ -45,74 +42,6 @@ find_ip(const pcre *code, const char *subject, int length, struct in_addr *addr)
 	}
 
 	return inet_pton(AF_INET, ip, addr) == 1 && addr->s_addr != 0;
-}
-
-static FILE *
-open_log(const char *filename, uid_t uid) {
-	FILE *fp;
-	struct stat statbuf;
-
-	if (mkfifo(filename, S_IRUSR | S_IWUSR)) {
-		/* ignore failure from an existing file */
-		if (errno != EEXIST) {
-			perror("mkfifo");
-			return NULL;
-		}
-	}
-
-	/* open R/W in order to avoid EOF */
-	fp = fopen(filename, "r+");
-	if (!fp) {
-		perror("fopen");
-		return NULL;
-	}
-
-	do {
-		if (fstat(fileno(fp), &statbuf) < 0) {
-			perror("fstat");
-			break;
-		}
-
-		if (!S_ISFIFO(statbuf.st_mode)) {
-			fprintf(stderr, "Log file must be a FIFO\n");
-			break;
-		}
-
-		if (statbuf.st_mode & (S_IWOTH)) {
-			fprintf(stderr, "Log file must not be world-writable\n");
-			break;
-		}
-
-		if (statbuf.st_uid != 0 && statbuf.st_uid != uid) {
-			fprintf(stderr, "Log file must be owned by root or the owner of this process\n");
-			break;
-		}
-
-		if (flock(fileno(fp), LOCK_EX | LOCK_NB) < 0) {
-			perror("Cannot lock for reading");
-			break;
-		}
-
-		return fp;
-	} while (0);
-
-	fclose(fp);
-	return NULL;
-}
-
-static int read_line(FILE *fp, char *buf, size_t buf_size) {
-	int len;
-
-	if (fgets(buf, buf_size, fp) == NULL)
-		return 0;
-
-	len = strlen(buf);
-	if (len > 0) {
-		if (buf[len - 1] == '\n')
-			buf[--len] = 0;
-	}
-
-	return len;
 }
 
 /* str does not need to be NUL-terminated */
@@ -210,7 +139,6 @@ int main(int argc, char **argv) {
 	size_t patterns_count;
 	struct log_pattern *patterns;
 	const char *logname, *username;
-	FILE *fp;
 	struct passwd *passwd;
 	uid_t uid;
 	gid_t gid;
@@ -238,7 +166,7 @@ int main(int argc, char **argv) {
 	uid = passwd->pw_uid;
 	gid = passwd->pw_gid;
 
-	if ((fp = open_log(logname, uid)) == NULL)
+	if (log_open(uid, logname))
 		return 2;
 
 	if (drop_privileges(uid, gid) < 0)
@@ -262,14 +190,14 @@ int main(int argc, char **argv) {
 		char str[1024];
 		int str_len;
 
-		str_len = read_line(fp, str, sizeof str);
+		str_len = log_read_line(str, sizeof str);
 		if (str_len > 0) {
 			process_line(patterns, patterns_count, str, str_len);
 		}
 	}
 
 	blocker_fini();
-	fclose(fp);
+	log_close();
 	patterns_fini();
 
 	return 0;
