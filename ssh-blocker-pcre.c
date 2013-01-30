@@ -150,13 +150,13 @@ int main(int argc, char **argv) {
 	}
 
 	if (argc < 3) {
-		printf("Usage: %s log-pipe-file username\n", program);
+		printf("Usage: %s username log-pipe-filename\n", program);
 		puts(PACKAGE_STRING " built on " __DATE__);
 		puts("Copyright (c) 2013 Peter Wu");
 		return 2;
 	}
-	logname = argv[1];
-	username = argv[2];
+	username = argv[1];
+	logname = argv[2];
 
 	passwd = getpwnam(username);
 	if (!passwd) {

@@ -68,12 +68,17 @@ USAGE
 
     The command is invoked as follows:
 
-        ssh-blocker -d log-pipe-file username
+        ssh-blocker -d username log-pipe-file
 
     "-d" is optional, it causes the program to daemonize. This happens just
     before log entries are read, so any errors in opening the fifo, dropping
     privileges can be caught earlier. Note that "-d" can be specified only as
     the first argument, getopt is not used for now.
+
+    "username" is the user under which the program should run. Do not run this
+    program under someone like "nobody" because all "nobody" users can kill this
+    program, write junk to the FIFO or ptrace it if settings/permissions allow
+    it.
 
     "log-pipe-file" must be replaced by the path to a named pipe. If it does not
     exist at start-up, it will be created with permissions 0600 (read/write for
@@ -81,14 +86,9 @@ USAGE
     file already exists, it must be a FIFO that is owned by root (or the user
     that started this program) and not be world-writable.
 
-    "username" is the user under which the program should run. Do not run this
-    program under someone like "nobody" because all "nobody" users can kill this
-    program, write junk to the FIFO or ptrace it if settings/permissions allow
-    it.
-
     Suggested start-up order:
     - Start this program before rsyslog:
-        ssh-blocker /run/ssh-blocker.fifo ssh-blocker
+        ssh-blocker ssh-blocker /run/ssh-blocker.fifo
     - (rsyslog starts here)
 
     When the iptables rules are loaded:
