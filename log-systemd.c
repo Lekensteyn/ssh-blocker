@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <systemd/sd-journal.h>
+#include <poll.h>
 
 #include "ssh-blocker.h"
 
@@ -19,6 +20,8 @@ static sd_journal *j;
 	fprintf(stderr, "log-systemd: " fmt ": %s\n", ## __VA_ARGS__, strerror(-r)); \
 	return -1; \
 } while (0)
+
+static struct pollfd log_poller;
 
 int
 log_open(uid_t uid, const char *filename) {
@@ -45,6 +48,15 @@ log_open(uid_t uid, const char *filename) {
 	if (r < 0) {
 		RET_FAIL("Failed to move to the ned of the journal");
 	}
+
+	memset(&log_poller, 0, sizeof log_poller);
+	log_poller.fd = sd_journal_get_fd(j);
+	log_poller.events = POLLIN;
+
+	if (log_poller.fd < 0) {
+		RET_FAIL("Failed to get journal fd");
+	}
+
 	return 0;
 }
 
@@ -54,23 +66,22 @@ log_read_line(char *buf, size_t buf_size) {
 	const char *d;
 	size_t l;
 
-	for (;;) {
-		r = sd_journal_next(j);
-		if (r < 0) {
-			/* Failed to iterate to next entry */
+	r = sd_journal_next(j);
+	if (r < 0) {
+		/* Failed to iterate to next entry */
+		return 0;
+	}
+
+	if (r == 0) {
+		/* Reached the end, let's wait for changes, and try again */
+		if (poll(&log_poller, 1, -1) < 0) {
+			/* interrupted */
 			return 0;
 		}
 
-		if (r == 0) {
-			/* Reached the end, let's wait for changes, and try again */
-			r = sd_journal_wait(j, (uint64_t) -1);
-			if (r < 0) {
-				/* Failed to wait for changes */
-				return 0;
-			}
-			continue;
-		}
-		break;
+		sd_journal_process(j);
+
+		return 0;
 	}
 
 	r = sd_journal_get_data(j, "MESSAGE", (const void **)&d, &l);
@@ -100,5 +111,8 @@ log_read_line(char *buf, size_t buf_size) {
 
 void
 log_close(void) {
-	sd_journal_close(j);
+	if (j) {
+		sd_journal_close(j);
+		j = NULL;
+	}
 }
