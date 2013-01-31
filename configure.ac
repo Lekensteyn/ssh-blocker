@@ -1,6 +1,7 @@
 AC_INIT([ssh-blocker], [0.1], [lekensteyn@gmail.com])
 AM_INIT_AUTOMAKE([-Wall foreign])
 AC_PROG_CC
+AC_PROG_SED
 
 AM_CONDITIONAL(WITH_SYSTEMD, [test "x$have_manpages" = "xyes"])
 AC_ARG_ENABLE([systemd], [AS_HELP_STRING([--enable-systemd],
@@ -9,6 +10,7 @@ AC_ARG_ENABLE([systemd], [AS_HELP_STRING([--enable-systemd],
 )
 AS_IF([test "x$enable_systemd" = "xyes"], [
 	PKG_CHECK_MODULES([systemd], [libsystemd-journal])
+	PKG_CHECK_VAR([SYSTEMD_UNITDIR], [systemd], [systemdsystemunitdir])
 	AC_DEFINE([HAVE_SYSTEMD], 1, [support for systemd as log provider])
 ])
 AM_CONDITIONAL([HAVE_SYSTEMD], [test "x$enable_systemd" = "xyes"])
@@ -23,6 +25,7 @@ AC_MSG_RESULT([
 	$PACKAGE_NAME $VERSION
 
 	log source systemd: $enable_systemd
+	systemd unit dir: $SYSTEMD_UNITDIR
 
 	CFLAGS: $CFLAGS
 	CPPFLAGS: $CPPFLAGS

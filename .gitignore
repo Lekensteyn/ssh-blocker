@@ -3,6 +3,7 @@
 .deps/
 Makefile
 Makefile.in
+systemd/ssh-blocker.service
 
 /aclocal.m4
 /autom4te.cache/
