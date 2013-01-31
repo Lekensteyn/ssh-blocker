@@ -22,8 +22,11 @@ REQUIREMENTS
 
     The following programs are recommended:
     - iptables - for actual allowing or denying access based on ipset lists.
-    - rsyslog - for writing log messages to the named pipe (FIFO).
     - OpenSSH - the service to protect by reading its logs.
+
+    One log provider must be available:
+    - rsyslog - for writing log messages to the named pipe (FIFO).
+    - systemd - for retrieving log messages from the systemd journal.
 
     Debian Wheezy has been used for testing. Older versions of the above
     software may also work, but is no guaranteed.
@@ -47,6 +50,10 @@ CONFIGURATION
     This will prevent IP addresses from being resolved to hostnames. Reload the
     SSH configuration thereafter.
 
+    Exactly one log provider can be used, this must be specified at compile
+    time.
+
+    (for rsyslog only)
     Assuming the named pipe to be located at /run/ssh-blocker.fifo, create a new
     rsyslog configuration file (/etc/rsyslog.d/ssh-blocker.conf) containing:
 
@@ -61,7 +68,8 @@ CONFIGURATION
 USAGE
     There are some ways to set-up this program:
     - Manually create a FIFO before starting rsyslog, start this program
-      thereafter. Alternative: start this program followed by rsyslog.
+      thereafter. Alternative: start this program followed by rsyslog.  (only
+      applicable in log pipe configuration)
     - Manually create the whitelist and blacklist ipsets, set iptables rules and
       start this program. Alternative: start this program and set iptables
       rules thereafter.
@@ -69,6 +77,9 @@ USAGE
     The command is invoked as follows:
 
         ssh-blocker -d username log-pipe-file
+    Or if systemd is used instead of a pipe:
+
+        ssh-blocker -d username
 
     "-d" is optional, it causes the program to daemonize. This happens just
     before log entries are read, so any errors in opening the fifo, dropping
@@ -80,12 +91,14 @@ USAGE
     program, write junk to the FIFO or ptrace it if settings/permissions allow
     it.
 
+    (only applicable in log pipe configuration)
     "log-pipe-file" must be replaced by the path to a named pipe. If it does not
     exist at start-up, it will be created with permissions 0600 (read/write for
     owner only) under the user and group the program was started with. If the
     file already exists, it must be a FIFO that is owned by root (or the user
     that started this program) and not be world-writable.
 
+    (only applicable in log pipe configuration)
     Suggested start-up order:
     - Start this program before rsyslog:
         ssh-blocker ssh-blocker /run/ssh-blocker.fifo
@@ -144,6 +157,7 @@ TODO
       in the logs, no block will be performed as old entries are overwritten.
       This should only be an issue when a botnet is attacking you. With spoofed
       IP addresses, you have different issues.
+    - Nicier log source selection.
 
 AUTHORS
     Written by Peter Wu.

@@ -138,7 +138,8 @@ int main(int argc, char **argv) {
 	bool daemonize = false;
 	size_t patterns_count;
 	struct log_pattern *patterns;
-	const char *logname, *username;
+	const char *username;
+	const char *logname = NULL;
 	struct passwd *passwd;
 	uid_t uid;
 	gid_t gid;
@@ -149,14 +150,21 @@ int main(int argc, char **argv) {
 		++argv;
 	}
 
+#ifdef HAVE_SYSTEMD
+	if (argc < 2) {
+		printf("Usage: %s username\n", program);
+#else
 	if (argc < 3) {
 		printf("Usage: %s username log-pipe-filename\n", program);
+#endif
 		puts(PACKAGE_STRING " built on " __DATE__);
 		puts("Copyright (c) 2013 Peter Wu");
 		return 2;
 	}
 	username = argv[1];
+#ifndef HAVE_SYSTEMD
 	logname = argv[2];
+#endif
 
 	passwd = getpwnam(username);
 	if (!passwd) {
