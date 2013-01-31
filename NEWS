@@ -1,0 +1,9 @@
+Version 0.2 - 31 January 2013
+
+* Added support for systemd as log source.
+* Swapped arguments for log pipe and username (and removed the username
+  parameter for systemd).
+
+Version 0.1 - 22 January 2013
+
+* Initial release.
