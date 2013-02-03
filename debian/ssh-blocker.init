@@ -46,7 +46,7 @@ do_start()
 	start-stop-daemon --start --quiet --exec $DAEMON --test > /dev/null \
 		|| return 1
 	start-stop-daemon --start --quiet --exec $DAEMON -- \
-		-d "$FIFO_FILENAME" "$DAEMONUSER" || return 2
+		-d "$DAEMONUSER" "$FIFO_FILENAME" || return 2
 }
 
 do_stop()

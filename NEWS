@@ -1,3 +1,5 @@
+* Fixed argument order in Debian init script (regression from 0.2).
+
 Version 0.2 - 31 January 2013
 
 * Added support for systemd as log source.
