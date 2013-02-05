@@ -4,6 +4,7 @@
 Makefile
 Makefile.in
 systemd/ssh-blocker.service
+ssh-blocker
 
 /aclocal.m4
 /autom4te.cache/
