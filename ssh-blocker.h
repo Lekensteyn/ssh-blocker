@@ -18,7 +18,7 @@
 #define IPLIST_LENGTH 512
 
 /* With this number of matches, an IP address will be blocked. range 1-254 */
-#define MATCH_THRESHOLD 5
+#define MATCH_THRESHOLD 2
 
 /* Type name, used when creating the set specified by SETNAME_BLACKLIST */
 #define TYPENAME "hash:ip"
@@ -37,7 +37,7 @@
 /* time before removing an IP from the whitelist. 0 means default (usually
  * infinity unless a "timeout" argument was specified when creating the list
  * with ipset) */
-#define WHITELIST_TIME 3600
+#define WHITELIST_TIME 3600 * 24
 
 /* time before unblocking in seconds. See also WHITELIST_TIME */
 #define BLOCK_TIME 3600
