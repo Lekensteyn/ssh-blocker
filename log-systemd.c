@@ -26,8 +26,9 @@ static struct pollfd log_poller;
 int
 log_open(uid_t uid, const char *filename) {
 	int r;
+	(void) uid; (void) filename;
 
-	r = sd_journal_open(&j, SD_JOURNAL_LOCAL_ONLY);
+	r = sd_journal_open(&j, SD_JOURNAL_LOCAL_ONLY | SD_JOURNAL_SYSTEM);
 	if (r < 0) {
 		RET_FAIL("Failed to open journal");
 	}
@@ -46,7 +47,7 @@ log_open(uid_t uid, const char *filename) {
 	 * sd_journal_seek_tail has no effect */
 	r = sd_journal_previous(j);
 	if (r < 0) {
-		RET_FAIL("Failed to move to the ned of the journal");
+		RET_FAIL("Failed to move to the end of the journal");
 	}
 
 	memset(&log_poller, 0, sizeof log_poller);
