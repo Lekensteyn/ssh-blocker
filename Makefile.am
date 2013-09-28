@@ -14,6 +14,10 @@ do_subst = $(SED) 's|[@]sbindir[@]|@sbindir@|g' $< > $@
 systemd/ssh-blocker.service: systemd/ssh-blocker.service.in
 	$(do_subst)
 
+EXTRA_DIST = \
+	systemd/ssh-blocker.service.in \
+	debian/ssh-blocker.init
+
 if HAVE_SYSTEMD
 AM_CFLAGS += $(systemd_CFLAGS)
 ssh_blocker_SOURCES += log-systemd.c
