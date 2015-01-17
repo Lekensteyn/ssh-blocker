@@ -124,8 +124,8 @@ USAGE
     -N ssh
     -A INPUT -p tcp --dport 22 -j ssh
     # Apply ssh-blocker whitelist and blacklists
-    -A ssh -m set --match-set ssh-blocklist src -j ACCEPT
-    -A ssh -m set --match-set ssh-whitelist src -j DROP
+    -A ssh -m set --match-set ssh-whitelist src -j ACCEPT
+    -A ssh -m set --match-set ssh-blocklist src -j DROP
     # Whatever you would normally add for limiting SSH connection attempts
     -A ssh -m recent --name ssh --update --seconds 60 --hitcount 10 -j DROP
     -A ssh -m recent --name ssh --set
