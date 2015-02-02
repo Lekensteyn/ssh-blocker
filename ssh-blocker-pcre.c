@@ -15,6 +15,7 @@
 #include <sys/capability.h>
 #include <pwd.h>
 #include <sys/prctl.h>
+#include <search.h>
 
 /* returns
  *    0 if there is no match,
@@ -65,10 +66,10 @@ process_line(const pcre *pattern, char *str, size_t str_len) {
 	struct in_addr addr;
 	switch (find_ip(pattern, str, str_len, &addr)) {
 		case 1:
-			iplist_accept(addr);
+			iphash_accept(addr);
 			break;
 		case 2:
-			iplist_block(addr);
+			iphash_block(addr);
 			break;
 	};
 }
@@ -201,6 +202,9 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 
+	/* initialize hash table */
+	hcreate(IPHASH_LENGTH);
+
 	install_signal_handlers();
 
 	while (active) {
@@ -212,6 +216,13 @@ int main(int argc, char **argv) {
 			process_line(pattern, str, str_len);
 		}
 	}
+
+	/* TBD: free keys and data
+	 *		  on program exit, the kernel reclaims all allocated
+	 *		  memory, so this is not strictly necessary */
+
+	/* initialize hash table */
+	hdestroy();
 
 	blocker_fini();
 	log_close();

@@ -15,7 +15,7 @@
 #include <pcre.h>
 
 /* size of the IP address list */
-#define IPLIST_LENGTH 512
+#define IPHASH_LENGTH 512
 
 /* With this number of matches, an IP address will be blocked. range 1-254 */
 #define MATCH_THRESHOLD 2
@@ -67,8 +67,8 @@ void pattern_fini(pcre **pattern);
 /* maximum number of groups in regex */
 #define REGEX_MAX_GROUPS 3
 
-void iplist_block(const struct in_addr addr);
-void iplist_accept(const struct in_addr addr);
+void iphash_block(const struct in_addr addr);
+void iphash_accept(const struct in_addr addr);
 
 void do_block(const struct in_addr addr);
 void do_unblock(const struct in_addr addr);
