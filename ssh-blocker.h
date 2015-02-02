@@ -42,6 +42,17 @@
 /* time before unblocking in seconds. See also WHITELIST_TIME */
 #define BLOCK_TIME 3600
 
+#define USER "(?:[a-z_][a-z0-9_-]*[$]?)"
+#define IP_ELEMENT "(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])"
+#define IP IP_ELEMENT "\\." IP_ELEMENT "\\." IP_ELEMENT "\\." IP_ELEMENT
+#define WIP "(?<wip>" IP ")"
+#define BIP "(?<bip>" IP ")"
+
+#define SSH_PATTERN \
+   "Invalid user " USER " from " BIP "$" "|" \
+   "User " USER " from " BIP " not allowed because not listed in AllowUsers$" "|" \
+   "Accepted publickey for " USER " from " WIP " port [0-9]{1,5} ssh2$"
+
 int log_open(uid_t uid, const char *filename);
 int log_read_line(char *buf, size_t buf_size);
 void log_close(void);
@@ -51,10 +62,10 @@ struct log_pattern {
 	pcre *pattern;
 	bool is_whitelist;
 };
-size_t patterns_init(struct log_pattern **dst);
-void patterns_fini(void);
-/* maximum number of groups in regexes */
-#define REGEX_MAX_GROUPS 1
+pcre *pattern_compile(const char *pattern);
+void pattern_fini(pcre **pattern);
+/* maximum number of groups in regex */
+#define REGEX_MAX_GROUPS 3
 
 void iplist_block(const struct in_addr addr);
 void iplist_accept(const struct in_addr addr);

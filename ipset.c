@@ -12,6 +12,7 @@
 #include <libipset/session.h>
 #include <libipset/data.h>
 #include <stdint.h>
+#include <stdio.h>
 
 static struct ipset_session *session;
 
@@ -33,7 +34,7 @@ try_ipset_cmd(enum ipset_cmd cmd, const char *setname,
 
 	type = ipset_type_get(session, cmd);
 	if (type == NULL) {
-		/* possible reasons for failure: set name does not exist */
+		fprintf(stderr, "possible reasons for failure: set name does not exist\n");
 		return false;
 	}
 

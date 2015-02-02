@@ -6,11 +6,9 @@
  */
 #include "ssh-blocker.h"
 
-#define IP_DIGITS "(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])"
-#define IP_PATTERN "(?<ip>" IP_DIGITS "\\." IP_DIGITS "\\." IP_DIGITS "\\." IP_DIGITS ")"
-
 /* Note: when introducing new groups, be sure to increase REGEX_MAX_GROUPS in
  * ssh-blocker.h */
+#if 0
 static struct log_pattern matches[] = {
 	{
 		.regex = "Invalid user .{0,100} from " IP_PATTERN "$",
@@ -21,12 +19,11 @@ static struct log_pattern matches[] = {
 		.is_whitelist = true,
 	},
 };
+#endif
 
-static size_t patterns_count = sizeof(matches) / sizeof(*matches);
-
-static pcre *
-compile(const char *pattern) {
-	int options = PCRE_NO_AUTO_CAPTURE;
+pcre *
+pattern_compile(const char *pattern) {
+	int options = PCRE_NO_AUTO_CAPTURE | PCRE_DUPNAMES;
 	const char *error;
 	int erroffset;
 	pcre *re;
@@ -39,32 +36,10 @@ compile(const char *pattern) {
 	return re;
 }
 
-size_t
-patterns_init(struct log_pattern **dst) {
-	size_t i;
-
-	for (i = 0; i < patterns_count; i++) {
-		struct log_pattern *match = &matches[i];
-		match->pattern = compile(match->regex);
-		if (!match->pattern) {
-			patterns_fini();
-			return 0;
-		}
-	}
-
-	*dst = matches;
-
-	return patterns_count;
-}
-
 void
-patterns_fini(void) {
-	size_t i;
-
-	for (i = 0; i < patterns_count; i++) {
-		if (matches[i].pattern) {
-			pcre_free(matches[i].pattern);
-			matches[i].pattern = NULL;
-		}
+pattern_fini(pcre **pattern) {
+	if (*pattern) {
+		pcre_free(*pattern);
+		*pattern = NULL;
 	}
 }

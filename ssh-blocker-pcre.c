@@ -16,51 +16,61 @@
 #include <pwd.h>
 #include <sys/prctl.h>
 
-/* returns true if a valid IP address is matched, false otherwise. 0.0.0.0 is
- * considered an invalid IP address */
-static bool
-find_ip(const pcre *code, const char *subject, int length, struct in_addr *addr) {
+/* returns
+ *    0 if there is no match,
+ *    1 if a whitelist IP is matched,
+ *    2 if a blacklist IP is matched */
+static int
+find_ip(const pcre *pattern, const char *subject, int length, struct in_addr *addr) {
 	int rc, options = 0;
 	/* +1 for matching substring, a.k.a. $0 */
 	int ovector[3 * (1 + REGEX_MAX_GROUPS)];
 	char ip[INET_ADDRSTRLEN];
+	int result = 0;
 
-	rc = pcre_exec(code, NULL, subject, length, 0, options,
-			ovector, sizeof(ovector) / sizeof(*ovector));
+	rc = pcre_exec(pattern, NULL, subject, length, 0, options,
+						ovector, sizeof(ovector) / sizeof(int));
+
 	/* if 0, there was not enough space... */
 	assert(rc != 0);
 
 	if (rc < 2) {
-		/* matching error, e.g. too little groups */
-		return false;
+		/* matching error, e.g. too few groups */
+		return 0;
 	}
 
-	if (pcre_copy_named_substring(code, subject, ovector, rc, "ip",
-			ip, sizeof ip) < 0) {
-		/* Hmm, "ip" is not defined as capture group? */
-		return false;
+	/* check whether match is white or black */
+	if (pcre_copy_named_substring(pattern, subject, ovector, rc, "wip",
+											ip, sizeof ip) >= 0) {
+		result = 1;
+	}
+	else if (pcre_copy_named_substring(pattern, subject, ovector, rc, "bip",
+												  ip, sizeof ip) >= 0) {
+		result = 2;
 	}
 
-	return inet_pton(AF_INET, ip, addr) == 1 && addr->s_addr != 0;
+	/* convert string to ip */
+	if (inet_pton(AF_INET, ip, addr) != 1 || addr->s_addr == 0) {
+		fprintf(stderr, "IP format unknown\n");
+		return 0;
+	}
+	else {
+		return result;
+	}
 }
 
 /* str does not need to be NUL-terminated */
 static void
-process_line(struct log_pattern *patterns,
-		int patterns_count, char *str, size_t str_len) {
-	int i;
-
-	for (i = 0; i < patterns_count; i++) {
-		struct in_addr addr;
-		if (find_ip(patterns[i].pattern, str, str_len, &addr)) {
-			if (patterns[i].is_whitelist) {
-				iplist_accept(addr);
-			} else {
-				iplist_block(addr);
-			}
+process_line(const pcre *pattern, char *str, size_t str_len) {
+	struct in_addr addr;
+	switch (find_ip(pattern, str, str_len, &addr)) {
+		case 1:
+			iplist_accept(addr);
 			break;
-		}
-	}
+		case 2:
+			iplist_block(addr);
+			break;
+	};
 }
 
 /* set to 0 to break the main loop */
@@ -136,8 +146,7 @@ drop_privileges(uid_t uid, gid_t gid) {
 int main(int argc, char **argv) {
 	const char *program = argv[0];
 	bool daemonize = false;
-	size_t patterns_count;
-	struct log_pattern *patterns;
+	pcre *pattern;
 	const char *username;
 	const char *logname = NULL;
 	struct passwd *passwd;
@@ -183,9 +192,9 @@ int main(int argc, char **argv) {
 	if (!blocker_init())
 		return 1;
 
-	patterns_count = patterns_init(&patterns);
-	if (!patterns_count)
+	if ((pattern = pattern_compile(SSH_PATTERN)) == NULL) {
 		return 1;
+   }
 
 	if (daemonize && daemon(0, 0)) {
 		perror("Failed to daemonize");
@@ -200,13 +209,13 @@ int main(int argc, char **argv) {
 
 		str_len = log_read_line(str, sizeof str);
 		if (str_len > 0) {
-			process_line(patterns, patterns_count, str, str_len);
+			process_line(pattern, str, str_len);
 		}
 	}
 
 	blocker_fini();
 	log_close();
-	patterns_fini();
+	pattern_fini(&pattern);
 
 	return 0;
 }
