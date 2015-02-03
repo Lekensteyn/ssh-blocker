@@ -109,19 +109,19 @@ void iphash_block(const struct in_addr addr) {
 		((ip_entry *) hentryp->data)->matches = 0;
 	} else { /* IP was entered before */
 		free(hentry.key);
-		if (now - ((ip_entry *) hentryp->data)->last_match > REMEMBER_TIME) {
+		if (now - ((ip_entry *) hentryp->data)->last_match > remember) {
 			((ip_entry *) hentryp->data)->matches = 0;
 		}
 	}
 
 	/* Do not re-block when threshold is reached already */
-	if (((ip_entry *) hentryp->data)->matches <= MATCH_THRESHOLD) {
+	if (((ip_entry *) hentryp->data)->matches <= threshold) {
 
 		++(((ip_entry *) hentryp->data)->matches);
 
 		((ip_entry *) hentryp->data)->last_match = now;
 
-		if (((ip_entry *) hentryp->data)->matches >= MATCH_THRESHOLD) {
+		if (((ip_entry *) hentryp->data)->matches >= threshold) {
 			fprintf(stderr, "IP %s blocked.\n", inet_ntoa(addr));
 			do_block(addr);
 		}
@@ -140,7 +140,7 @@ void iphash_accept(const struct in_addr addr) {
 	ip2str(addr.s_addr, ip_str);
 	if ((hentryp = hsearch(hentry, FIND)) != NULL) {
 		/* remove addr from block list */
-		if (((ip_entry *) hentryp->data)->matches >= MATCH_THRESHOLD)
+		if (((ip_entry *) hentryp->data)->matches >= threshold)
 			do_unblock(addr);
 
 		free(hentryp->data);

@@ -16,6 +16,7 @@
 #include <pwd.h>
 #include <sys/prctl.h>
 #include <search.h>
+#include <getopt.h>
 
 /* returns
  *    0 if there is no match,
@@ -144,37 +145,130 @@ drop_privileges(uid_t uid, gid_t gid) {
 	return 0;
 }
 
+void usage(const char *program) {
+	fprintf(stderr,
+		"Usage: %s [options]\n"
+		"Either short or long options are allowed.\n"
+		"  -d|--daemonize  Daemonize this programs process.\n"
+#ifdef HAVE_SYSTEMD
+		"  -s|--systemd    Use systemd journal as log input.\n"
+#endif
+		"  -l|--logpipe    Name of the log pipe for input.\n"
+		"  -r|--remember   Period during which an IP address is remembered for blacklisting (default: %d).\n"
+		"  -t|--threshold  Threshold that needs to be reached before an IP address is blacklisted (default: %d).\n"
+		"  -u|--username   User under whose privileges this program runs."
+		"  -w|--whitelist  Name of the ipset for whitelisted IP addresses (default: %s).\n"
+		"  -b|--blacklist  Name of the ipset for blacklisted IP addresses (default: %s)\n"
+		"  -h|--help       Display this short inlined help screen.\n"
+		"  -v|--version    Display the release number\n",
+		program, REMEMBER_TIME, MATCH_THRESHOLD, SETNAME_WHITELIST, SETNAME_BLACKLIST);
+}
+
 int main(int argc, char **argv) {
 	const char *program = argv[0];
-	bool daemonize = false;
-	pcre *pattern;
-	const char *username;
-	const char *logname = NULL;
+
+	char  c;
+	bool  daemonize;
+	bool  systemd;
+	char *username;
+	char *logname;
+
 	struct passwd *passwd;
-	uid_t uid;
-	gid_t gid;
+	uid_t          uid;
+	gid_t          gid;
+	pcre          *pattern;
 
-	if (argc > 2 && strcmp(argv[1], "-d") == 0) {
-		daemonize = true;
-		--argc;
-		++argv;
-	}
-
+	struct option opts[] = {
+		{"blacklist", 1, 0, 'b'},
+		{"daemonize", 0, 0, 'd'},
+		{"logpipe",   1, 0, 'l'},
+		{"remember",  1, 0, 'r'},
 #ifdef HAVE_SYSTEMD
-	if (argc < 2) {
-		printf("Usage: %s username\n", program);
-#else
-	if (argc < 3) {
-		printf("Usage: %s username log-pipe-filename\n", program);
+		{"systemd",   0, 0, 's'},
 #endif
-		puts(PACKAGE_STRING " built on " __DATE__);
-		puts("Copyright (c) 2013 Peter Wu");
-		return 2;
+		{"threshold", 1, 0, 't'},
+		{"username",  1, 0, 'u'},
+		{"whitelist", 1, 0, 'b'},
+		{"help",      0, 0, 'h'},
+		{"version",   0, 0, 'v'},
+		{0, 0, 0, 0}
+	};
+
+	/* set defaults */
+	daemonize = false;
+	systemd   = false;
+	logname   = NULL;
+	username  = NULL;
+	remember  = REMEMBER_TIME;
+	threshold = MATCH_THRESHOLD;
+	whitelist = SETNAME_WHITELIST;
+	blacklist = SETNAME_BLACKLIST;
+
+	while ((c = getopt_long(argc, argv, "b:dl:r:st:u:w:hv", opts, NULL)) != EOF) {
+		switch (c) {
+			case 'b':
+				blacklist = optarg;
+				break;
+			case 'd':
+				daemonize = true;
+				break;
+			case 'l':
+				logname = optarg;
+				break;
+			case 'r':
+				remember = atoi(optarg);
+				break;
+			case 's':
+				systemd = true;
+				break;
+			case 't':
+				threshold = atoi(optarg);
+				break;
+			case 'u':
+				username = optarg;
+				break;
+			case 'w':
+				whitelist = optarg;
+				break;
+			case 'h':
+				usage(program);
+				exit(0);
+				break;
+			case 'v':
+				fprintf(stderr,
+						  PACKAGE_STRING " built on " __DATE__ "\n"
+						  "Copyright (c) 2013 Peter Wu\n");
+				exit(0);
+				break;
+			default:
+				fprintf(stderr, "Error: Unhandled option %d.\n", c);
+				exit(1);
+		};
 	}
-	username = argv[1];
-#ifndef HAVE_SYSTEMD
-	logname = argv[2];
+
+	if (optind < argc) {
+		fprintf(stderr, "Unexpected arguments: ");
+		while (optind < argc)
+			fprintf(stderr, "%s ", argv[optind++]);
+		fprintf(stderr, "\n");
+	}
+
+	/* check for username */
+	if (username == NULL) {
+		fprintf(stderr, "Error: --username needed.\n");
+		exit(1);
+	}
+
+	/* check if log input arguments are set correctly */
+#ifdef HAVE_SYSTEMD
+	if (systemd == false && logname == NULL) {
+		fprintf(stderr, "Error: Either use --systemd or set --logname.\n");
+#else
+	if (logname == NULL) {
+		fprintf(stderr, "Error: --logname needed.\n");
 #endif
+		exit(1);
+	}
 
 	passwd = getpwnam(username);
 	if (!passwd) {
@@ -195,7 +289,7 @@ int main(int argc, char **argv) {
 
 	if ((pattern = pattern_compile(SSH_PATTERN)) == NULL) {
 		return 1;
-   }
+	}
 
 	if (daemonize && daemon(0, 0)) {
 		perror("Failed to daemonize");

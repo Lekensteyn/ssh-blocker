@@ -53,6 +53,12 @@
    "User " USER " from " BIP " not allowed because not listed in AllowUsers$" "|" \
    "Accepted publickey for " USER " from " WIP " port [0-9]{1,5} ssh2$"
 
+/* global variables */
+unsigned int  remember;
+unsigned int  threshold;
+char         *whitelist;
+char         *blacklist;
+
 int log_open(uid_t uid, const char *filename);
 int log_read_line(char *buf, size_t buf_size);
 void log_close(void);
