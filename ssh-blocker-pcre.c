@@ -245,10 +245,10 @@ int main(int argc, char **argv) {
 				whitelist = optarg;
 				break;
 			case 300:
-				whitetime = atoi(optarg);
+				blacktime = atoi(optarg);
 				break;
 			case 301:
-				blacktime = atoi(optarg);
+				whitetime = atoi(optarg);
 				break;
 			case 'h':
 				usage(program);
