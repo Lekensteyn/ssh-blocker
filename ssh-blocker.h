@@ -58,6 +58,8 @@ unsigned int  remember;
 unsigned int  threshold;
 char         *whitelist;
 char         *blacklist;
+unsigned int  whitetime;
+unsigned int  blacktime;
 
 int log_open(uid_t uid, const char *filename);
 int log_read_line(char *buf, size_t buf_size);

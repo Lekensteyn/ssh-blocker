@@ -154,20 +154,30 @@ void usage(const char *program) {
 		"  -s|--systemd    Use systemd journal as log input.\n"
 #endif
 		"  -l|--logpipe    Name of the log pipe for input.\n"
-		"  -r|--remember   Period during which an IP address is remembered for blacklisting (default: %d).\n"
-		"  -t|--threshold  Threshold that needs to be reached before an IP address is blacklisted (default: %d).\n"
-		"  -u|--username   User under whose privileges this program runs."
-		"  -w|--whitelist  Name of the ipset for whitelisted IP addresses (default: %s).\n"
-		"  -b|--blacklist  Name of the ipset for blacklisted IP addresses (default: %s)\n"
+		"  -r|--remember   Period during which an IP address is remembered for\n"
+      "                  blacklisting (default: %d).\n"
+		"  -t|--threshold  Threshold that needs to be reached before an IP address\n"
+      "                  is blacklisted (default: %d).\n"
+		"  -u|--username   User under whose privileges this program runs.\n"
+		"  -w|--whitelist  Name of the ipset for whitelisted IP addresses\n"
+      "                  (default: %s).\n"
+		"     --whitetime  Time to keep on whitelist, 0 for permanently\n"
+      "                  (default: %d).\n"
+		"  -b|--blacklist  Name of the ipset for blacklisted IP addresses\n"
+      "                  (default: %s).\n"
+		"     --blacktime  Time to keep on blacklist, 0 for permanently\n"
+      "                  (default: %d).\n"
 		"  -h|--help       Display this short inlined help screen.\n"
 		"  -v|--version    Display the release number\n",
-		program, REMEMBER_TIME, MATCH_THRESHOLD, SETNAME_WHITELIST, SETNAME_BLACKLIST);
+		program, REMEMBER_TIME, MATCH_THRESHOLD,
+      SETNAME_WHITELIST, WHITELIST_TIME,
+      SETNAME_BLACKLIST, BLOCK_TIME);
 }
 
 int main(int argc, char **argv) {
 	const char *program = argv[0];
 
-	char  c;
+	int   c;
 	bool  daemonize;
 	bool  systemd;
 	char *username;
@@ -180,6 +190,7 @@ int main(int argc, char **argv) {
 
 	struct option opts[] = {
 		{"blacklist", 1, 0, 'b'},
+		{"blacktime", 1, 0, 300},
 		{"daemonize", 0, 0, 'd'},
 		{"logpipe",   1, 0, 'l'},
 		{"remember",  1, 0, 'r'},
@@ -189,6 +200,7 @@ int main(int argc, char **argv) {
 		{"threshold", 1, 0, 't'},
 		{"username",  1, 0, 'u'},
 		{"whitelist", 1, 0, 'b'},
+		{"whitetime", 1, 0, 301},
 		{"help",      0, 0, 'h'},
 		{"version",   0, 0, 'v'},
 		{0, 0, 0, 0}
@@ -202,7 +214,9 @@ int main(int argc, char **argv) {
 	remember  = REMEMBER_TIME;
 	threshold = MATCH_THRESHOLD;
 	whitelist = SETNAME_WHITELIST;
+   whitetime = WHITELIST_TIME;
 	blacklist = SETNAME_BLACKLIST;
+   blacktime = BLOCK_TIME;
 
 	while ((c = getopt_long(argc, argv, "b:dl:r:st:u:w:hv", opts, NULL)) != EOF) {
 		switch (c) {
@@ -229,6 +243,12 @@ int main(int argc, char **argv) {
 				break;
 			case 'w':
 				whitelist = optarg;
+				break;
+			case 300:
+				whitetime = atoi(optarg);
+				break;
+			case 301:
+				blacktime = atoi(optarg);
 				break;
 			case 'h':
 				usage(program);
