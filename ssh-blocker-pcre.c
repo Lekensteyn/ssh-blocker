@@ -45,11 +45,13 @@ find_ip(const pcre *pattern, const char *subject, int length, struct in_addr *ad
 	if (pcre_copy_named_substring(pattern, subject, ovector, rc, "wip",
 											ip, sizeof ip) >= 0) {
 		result = 1;
-	}
-	else if (pcre_copy_named_substring(pattern, subject, ovector, rc, "bip",
-												  ip, sizeof ip) >= 0) {
+	} else if (pcre_copy_named_substring(pattern, subject, ovector, rc, "bip",
+											       ip, sizeof ip) >= 0) {
 		result = 2;
-	}
+	} else {
+      return 0;
+   }
+  
 
 	/* convert string to ip */
 	if (inet_pton(AF_INET, ip, addr) != 1 || addr->s_addr == 0) {
