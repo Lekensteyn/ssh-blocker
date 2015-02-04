@@ -51,7 +51,6 @@ find_ip(const pcre *pattern, const char *subject, int length, struct in_addr *ad
 	} else {
       return 0;
    }
-  
 
 	/* convert string to ip */
 	if (inet_pton(AF_INET, ip, addr) != 1 || addr->s_addr == 0) {
@@ -149,31 +148,34 @@ drop_privileges(uid_t uid, gid_t gid) {
 
 void usage(const char *program) {
 	fprintf(stderr,
-		"Usage: %s [options]\n"
-		"Either short or long options are allowed.\n"
-		"  -d|--daemonize  Daemonize this programs process.\n"
-#ifdef HAVE_SYSTEMD
-		"  -s|--systemd    Use systemd journal as log input.\n"
-#endif
-		"  -l|--logpipe    Name of the log pipe for input.\n"
-		"  -r|--remember   Period during which an IP address is remembered for\n"
-      "                  blacklisting (default: %d).\n"
-		"  -t|--threshold  Threshold that needs to be reached before an IP address\n"
-      "                  is blacklisted (default: %d).\n"
-		"  -u|--username   User under whose privileges this program runs.\n"
-		"  -w|--whitelist  Name of the ipset for whitelisted IP addresses\n"
-      "                  (default: %s).\n"
-		"     --whitetime  Time to keep on whitelist, 0 for permanently\n"
-      "                  (default: %d).\n"
-		"  -b|--blacklist  Name of the ipset for blacklisted IP addresses\n"
-      "                  (default: %s).\n"
-		"     --blacktime  Time to keep on blacklist, 0 for permanently\n"
-      "                  (default: %d).\n"
-		"  -h|--help       Display this short inlined help screen.\n"
-		"  -v|--version    Display the release number\n",
+		"Usage: %s [OPTION]...\n"
+		"Block IP addresses based on SSH logs.\n\n"
+		"Mandatory arguments to long options are mandatory for short options too.\n"
+		"  -d, --daemonize          Daemonize this programs process.\n"
+		#ifdef HAVE_SYSTEMD
+		"  -l, --log-source=SOURCE  Name of the log pipe for input or systemd\n"
+		"                           (default: systemd).\n"
+		#else
+		"  -l, --log-source=SOURCE  Name of the log pipe for input or systemd.\n"
+		#endif
+		"  -r, --remember=SECONDS   Period during which an IP address is remembered for\n"
+		"                           blacklisting (default: %d).\n"
+		"  -t, --threshold=NUMBER   Threshold that needs to be reached before an IP\n"
+		"                           address is blacklisted (default: %d).\n"
+		"  -u, --username=USERNAME  User under whose privileges this program runs.\n"
+		"  -w, --whitelist=IPSET    Name of the ipset for whitelisted IP addresses\n"
+		"                           (default: %s).\n"
+		"      --whitetime=SECONDS  Time to keep on whitelist, 0 for permanently\n"
+		"                           (default: %d).\n"
+		"  -b, --blacklist=IPSET    Name of the ipset for blacklisted IP addresses\n"
+		"                           (default: %s).\n"
+		"      --blacktime=SECONDS  Time to keep on blacklist, 0 for permanently\n"
+		"                           (default: %d).\n"
+		"  -h, --help               Display this short inlined help screen.\n"
+		"  -v, --version            Display the release number\n",
 		program, REMEMBER_TIME, MATCH_THRESHOLD,
-      SETNAME_WHITELIST, WHITELIST_TIME,
-      SETNAME_BLACKLIST, BLOCK_TIME);
+		SETNAME_WHITELIST, WHITELIST_TIME,
+		SETNAME_BLACKLIST, BLOCK_TIME);
 }
 
 int main(int argc, char **argv) {
@@ -181,9 +183,8 @@ int main(int argc, char **argv) {
 
 	int   c;
 	bool  daemonize;
-	bool  systemd;
 	char *username;
-	char *logname;
+	char *logsource;
 
 	struct passwd *passwd;
 	uid_t          uid;
@@ -191,27 +192,27 @@ int main(int argc, char **argv) {
 	pcre          *pattern;
 
 	struct option opts[] = {
-		{"blacklist", 1, 0, 'b'},
-		{"blacktime", 1, 0, 300},
-		{"daemonize", 0, 0, 'd'},
-		{"logpipe",   1, 0, 'l'},
-		{"remember",  1, 0, 'r'},
-#ifdef HAVE_SYSTEMD
-		{"systemd",   0, 0, 's'},
-#endif
-		{"threshold", 1, 0, 't'},
-		{"username",  1, 0, 'u'},
-		{"whitelist", 1, 0, 'b'},
-		{"whitetime", 1, 0, 301},
-		{"help",      0, 0, 'h'},
-		{"version",   0, 0, 'v'},
+		{"blacklist",  1, 0, 'b'},
+		{"blacktime",  1, 0, 300},
+		{"daemonize",  0, 0, 'd'},
+		{"log-source", 1, 0, 'l'},
+		{"remember",   1, 0, 'r'},
+		{"threshold",  1, 0, 't'},
+		{"username",   1, 0, 'u'},
+		{"whitelist",  1, 0, 'b'},
+		{"whitetime",  1, 0, 301},
+		{"help",       0, 0, 'h'},
+		{"version",    0, 0, 'v'},
 		{0, 0, 0, 0}
 	};
 
 	/* set defaults */
 	daemonize = false;
-	systemd   = false;
-	logname   = NULL;
+#ifdef HAVE_SYSTEMD
+	logsource = "systemd";
+#else
+	logsource = NULL;
+#endif
 	username  = NULL;
 	remember  = REMEMBER_TIME;
 	threshold = MATCH_THRESHOLD;
@@ -220,7 +221,7 @@ int main(int argc, char **argv) {
 	blacklist = SETNAME_BLACKLIST;
    blacktime = BLOCK_TIME;
 
-	while ((c = getopt_long(argc, argv, "b:dl:r:st:u:w:hv", opts, NULL)) != EOF) {
+	while ((c = getopt_long(argc, argv, "b:dl:r:t:u:w:hv", opts, NULL)) != -1) {
 		switch (c) {
 			case 'b':
 				blacklist = optarg;
@@ -229,13 +230,10 @@ int main(int argc, char **argv) {
 				daemonize = true;
 				break;
 			case 'l':
-				logname = optarg;
+				logsource = optarg;
 				break;
 			case 'r':
 				remember = atoi(optarg);
-				break;
-			case 's':
-				systemd = true;
 				break;
 			case 't':
 				threshold = atoi(optarg);
@@ -281,15 +279,20 @@ int main(int argc, char **argv) {
 		exit(1);
 	}
 
-	/* check if log input arguments are set correctly */
-#ifdef HAVE_SYSTEMD
-	if (systemd == false && logname == NULL) {
-		fprintf(stderr, "Error: Either use --systemd or set --logname.\n");
-#else
-	if (logname == NULL) {
-		fprintf(stderr, "Error: --logname needed.\n");
-#endif
+	/* check if log-source arguments are set correctly */
+	if (logsource == NULL) {
+		fprintf(stderr, "Error: --log-source needed.\n");
 		exit(1);
+	} else {
+		if (strcmp(logsource, "systemd") == 0) {
+#ifndef HAVE_SYSTEMD
+			fprintf(stderr, "Error: systemd support hasn't been enabled at compile time\n");
+#endif
+		} else {
+#ifdef HAVE_SYSTEMD
+			fprintf(stderr, "Error: --log-source needs to be set to systemd\n");
+#endif
+		}
 	}
 
 	passwd = getpwnam(username);
@@ -300,7 +303,7 @@ int main(int argc, char **argv) {
 	uid = passwd->pw_uid;
 	gid = passwd->pw_gid;
 
-	if (log_open(uid, logname))
+	if (log_open(uid, logsource))
 		return 2;
 
 	if (drop_privileges(uid, gid) < 0)
@@ -309,7 +312,7 @@ int main(int argc, char **argv) {
 	if (!blocker_init())
 		return 1;
 
-	if ((pattern = pattern_compile(SSH_PATTERN)) == NULL) {
+	if ((pattern = pattern_compile(ssh_pattern)) == NULL) {
 		return 1;
 	}
 
@@ -342,7 +345,7 @@ int main(int argc, char **argv) {
 
 	blocker_fini();
 	log_close();
-	pattern_fini(&pattern);
+	pcre_free(&pattern);
 
 	return 0;
 }

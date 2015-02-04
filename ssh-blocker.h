@@ -6,6 +6,9 @@
  * Licensed under GPLv3 or any latter version.
  */
 
+#ifndef __SSH_BLOCKER_H__
+#define __SSH_BLOCKER_H__
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -42,22 +45,12 @@
 /* time before unblocking in seconds. See also WHITELIST_TIME */
 #define BLOCK_TIME 3600
 
-#define USER "(?:[a-z_][a-z0-9_-]*[$]?)"
-#define IP_ELEMENT "(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])"
-#define IP IP_ELEMENT "\\." IP_ELEMENT "\\." IP_ELEMENT "\\." IP_ELEMENT
-#define WIP "(?<wip>" IP ")"
-#define BIP "(?<bip>" IP ")"
-
-#define SSH_PATTERN \
-   "Invalid user " USER " from " BIP "$" "|" \
-   "User " USER " from " BIP " not allowed because not listed in AllowUsers$" "|" \
-   "Accepted publickey for " USER " from " WIP " port [0-9]{1,5} ssh2$"
-
 /* global variables */
+const char   *ssh_pattern;
 unsigned int  remember;
 unsigned int  threshold;
-char         *whitelist;
-char         *blacklist;
+const char   *whitelist;
+const char   *blacklist;
 unsigned int  whitetime;
 unsigned int  blacktime;
 
@@ -71,7 +64,6 @@ struct log_pattern {
 	bool is_whitelist;
 };
 pcre *pattern_compile(const char *pattern);
-void pattern_fini(pcre **pattern);
 /* maximum number of groups in regex */
 #define REGEX_MAX_GROUPS 3
 
@@ -84,3 +76,5 @@ void do_whitelist(const struct in_addr addr);
 bool is_whitelisted(const struct in_addr addr);
 bool blocker_init(void);
 void blocker_fini(void);
+
+#endif /* __SSH_BLOCKER_H__ */

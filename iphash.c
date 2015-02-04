@@ -87,6 +87,7 @@ void iphash_block(const struct in_addr addr) {
 	now = time(NULL);
 
 	ENTRY hentry, *hentryp;
+   ip_entry *datap;
 
 	hentry.key = malloc(IP_STR_SIZE);
 	if (hentry.key == NULL) return;
@@ -105,23 +106,25 @@ void iphash_block(const struct in_addr addr) {
 	if (hentryp->data == NULL) { /* IP wasn't entered before */
 		hentryp->data = malloc(sizeof(ip_entry));
 		if (hentryp->data == NULL) return;
-		ADDR_SET(((ip_entry *) hentryp->data)->addr, addr);
+      datap = (ip_entry *) hentryp->data;
+		ADDR_SET(datap->addr, addr);
 		((ip_entry *) hentryp->data)->matches = 0;
 	} else { /* IP was entered before */
 		free(hentry.key);
-		if (now - ((ip_entry *) hentryp->data)->last_match > remember) {
-			((ip_entry *) hentryp->data)->matches = 0;
+      datap = (ip_entry *) hentryp->data;
+		if (now - datap->last_match > remember) {
+			datap->matches = 0;
 		}
 	}
 
 	/* Do not re-block when threshold is reached already */
-	if (((ip_entry *) hentryp->data)->matches <= threshold) {
+	if (datap->matches <= threshold) {
 
-		++(((ip_entry *) hentryp->data)->matches);
+		++(datap->matches);
 
-		((ip_entry *) hentryp->data)->last_match = now;
+		datap->last_match = now;
 
-		if (((ip_entry *) hentryp->data)->matches >= threshold) {
+		if (datap->matches >= threshold) {
 			fprintf(stderr, "IP %s blocked.\n", inet_ntoa(addr));
 			do_block(addr);
 		}
@@ -136,11 +139,14 @@ void iphash_accept(const struct in_addr addr) {
 		return;
 
 	ENTRY hentry, *hentryp;
+   ip_entry *datap;
+
 	hentry.key = ip_str;
 	ip2str(addr.s_addr, ip_str);
-	if ((hentryp = hsearch(hentry, FIND)) != NULL) {
+	if ((hentryp = hsearch(hentry, FIND)) != NULL && hentryp->data != NULL) {
+      datap = (ip_entry *) hentryp->data;
 		/* remove addr from block list */
-		if (((ip_entry *) hentryp->data)->matches >= threshold)
+		if (datap->matches >= threshold)
 			do_unblock(addr);
 
 		free(hentryp->data);
