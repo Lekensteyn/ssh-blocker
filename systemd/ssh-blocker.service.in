@@ -10,8 +10,8 @@ ExecStart=@sbindir@/ssh-blocker ssh-blocker
 
 # Read _IPv4_ address from /etc/ssh/sshd_config in the form:
 # AllowUsers foo@1.2.3.4 bar@5.6.7.8
-ExecStartPost=-/bin/sh -c "for ip in $(grep ^AllowUsers /etc/ssh/sshd_config | grep -Po '\w+@\K[\d.]+'); \
-do /usr/sbin/ipset -exist add ssh-whitelist $ip timeout 0; done"
+ExecStartPost=-/bin/sh -c "grep ^AllowUsers /etc/ssh/sshd_config | grep -Po '\\w+@\\K[\\d.]+' | \
+xargs -I {} /usr/sbin/ipset -exist add ssh-whitelist {} timeout 0"
 
 [Install]
 WantedBy=multi-user.target
