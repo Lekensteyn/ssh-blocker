@@ -15,52 +15,65 @@
 #include <sys/capability.h>
 #include <pwd.h>
 #include <sys/prctl.h>
+#include <search.h>
+#include <getopt.h>
 
-/* returns true if a valid IP address is matched, false otherwise. 0.0.0.0 is
- * considered an invalid IP address */
-static bool
-find_ip(const pcre *code, const char *subject, int length, struct in_addr *addr) {
+/* returns
+ *    0 if there is no match,
+ *    1 if a whitelist IP is matched,
+ *    2 if a blacklist IP is matched */
+static int
+find_ip(const pcre *pattern, const char *subject, int length, struct in_addr *addr) {
 	int rc, options = 0;
 	/* +1 for matching substring, a.k.a. $0 */
 	int ovector[3 * (1 + REGEX_MAX_GROUPS)];
 	char ip[INET_ADDRSTRLEN];
+	int result = 0;
 
-	rc = pcre_exec(code, NULL, subject, length, 0, options,
-			ovector, sizeof(ovector) / sizeof(*ovector));
+	rc = pcre_exec(pattern, NULL, subject, length, 0, options,
+						ovector, sizeof(ovector) / sizeof(int));
+
 	/* if 0, there was not enough space... */
 	assert(rc != 0);
 
 	if (rc < 2) {
-		/* matching error, e.g. too little groups */
-		return false;
+		/* matching error, e.g. too few groups */
+		return 0;
 	}
 
-	if (pcre_copy_named_substring(code, subject, ovector, rc, "ip",
-			ip, sizeof ip) < 0) {
-		/* Hmm, "ip" is not defined as capture group? */
-		return false;
-	}
+	/* check whether match is white or black */
+	if (pcre_copy_named_substring(pattern, subject, ovector, rc, "wip",
+											ip, sizeof ip) >= 0) {
+		result = 1;
+	} else if (pcre_copy_named_substring(pattern, subject, ovector, rc, "bip",
+											       ip, sizeof ip) >= 0) {
+		result = 2;
+	} else {
+      return 0;
+   }
 
-	return inet_pton(AF_INET, ip, addr) == 1 && addr->s_addr != 0;
+	/* convert string to ip */
+	if (inet_pton(AF_INET, ip, addr) != 1 || addr->s_addr == 0) {
+		fprintf(stderr, "IP format unknown\n");
+		return 0;
+	}
+	else {
+		return result;
+	}
 }
 
 /* str does not need to be NUL-terminated */
 static void
-process_line(struct log_pattern *patterns,
-		int patterns_count, char *str, size_t str_len) {
-	int i;
-
-	for (i = 0; i < patterns_count; i++) {
-		struct in_addr addr;
-		if (find_ip(patterns[i].pattern, str, str_len, &addr)) {
-			if (patterns[i].is_whitelist) {
-				iplist_accept(addr);
-			} else {
-				iplist_block(addr);
-			}
+process_line(const pcre *pattern, char *str, size_t str_len) {
+	struct in_addr addr;
+	switch (find_ip(pattern, str, str_len, &addr)) {
+		case 1:
+			iphash_accept(addr);
 			break;
-		}
-	}
+		case 2:
+			iphash_block(addr);
+			break;
+	};
 }
 
 /* set to 0 to break the main loop */
@@ -133,38 +146,154 @@ drop_privileges(uid_t uid, gid_t gid) {
 	return 0;
 }
 
+void usage(const char *program) {
+	fprintf(stderr,
+		"Usage: %s [OPTION]...\n"
+		"Block IP addresses based on SSH logs.\n\n"
+		"Mandatory arguments to long options are mandatory for short options too.\n"
+		"  -d, --daemonize          Daemonize this programs process.\n"
+		#ifdef HAVE_SYSTEMD
+		"  -l, --log-source=SOURCE  Name of the log pipe for input or systemd\n"
+		"                           (default: systemd).\n"
+		#else
+		"  -l, --log-source=SOURCE  Name of the log pipe for input or systemd.\n"
+		#endif
+		"  -r, --remember=SECONDS   Period during which an IP address is remembered for\n"
+		"                           blacklisting (default: %d).\n"
+		"  -t, --threshold=NUMBER   Threshold that needs to be reached before an IP\n"
+		"                           address is blacklisted (default: %d).\n"
+		"  -u, --username=USERNAME  User under whose privileges this program runs.\n"
+		"  -w, --whitelist=IPSET    Name of the ipset for whitelisted IP addresses\n"
+		"                           (default: %s).\n"
+		"      --whitetime=SECONDS  Time to keep on whitelist, 0 for permanently\n"
+		"                           (default: %d).\n"
+		"  -b, --blacklist=IPSET    Name of the ipset for blacklisted IP addresses\n"
+		"                           (default: %s).\n"
+		"      --blacktime=SECONDS  Time to keep on blacklist, 0 for permanently\n"
+		"                           (default: %d).\n"
+		"  -h, --help               Display this short inlined help screen.\n"
+		"  -v, --version            Display the release number\n",
+		program, REMEMBER_TIME, MATCH_THRESHOLD,
+		SETNAME_WHITELIST, WHITELIST_TIME,
+		SETNAME_BLACKLIST, BLOCK_TIME);
+}
+
 int main(int argc, char **argv) {
 	const char *program = argv[0];
-	bool daemonize = false;
-	size_t patterns_count;
-	struct log_pattern *patterns;
-	const char *username;
-	const char *logname = NULL;
+
+	int   c;
+	bool  daemonize;
+	char *username;
+	char *logsource;
+
 	struct passwd *passwd;
-	uid_t uid;
-	gid_t gid;
+	uid_t          uid;
+	gid_t          gid;
+	pcre          *pattern;
 
-	if (argc > 2 && strcmp(argv[1], "-d") == 0) {
-		daemonize = true;
-		--argc;
-		++argv;
-	}
+	struct option opts[] = {
+		{"blacklist",  1, 0, 'b'},
+		{"blacktime",  1, 0, 300},
+		{"daemonize",  0, 0, 'd'},
+		{"log-source", 1, 0, 'l'},
+		{"remember",   1, 0, 'r'},
+		{"threshold",  1, 0, 't'},
+		{"username",   1, 0, 'u'},
+		{"whitelist",  1, 0, 'b'},
+		{"whitetime",  1, 0, 301},
+		{"help",       0, 0, 'h'},
+		{"version",    0, 0, 'v'},
+		{0, 0, 0, 0}
+	};
 
+	/* set defaults */
+	daemonize = false;
 #ifdef HAVE_SYSTEMD
-	if (argc < 2) {
-		printf("Usage: %s username\n", program);
+	logsource = "systemd";
 #else
-	if (argc < 3) {
-		printf("Usage: %s username log-pipe-filename\n", program);
+	logsource = NULL;
 #endif
-		puts(PACKAGE_STRING " built on " __DATE__);
-		puts("Copyright (c) 2013 Peter Wu");
-		return 2;
+	username  = NULL;
+	remember  = REMEMBER_TIME;
+	threshold = MATCH_THRESHOLD;
+	whitelist = SETNAME_WHITELIST;
+   whitetime = WHITELIST_TIME;
+	blacklist = SETNAME_BLACKLIST;
+   blacktime = BLOCK_TIME;
+
+	while ((c = getopt_long(argc, argv, "b:dl:r:t:u:w:hv", opts, NULL)) != -1) {
+		switch (c) {
+			case 'b':
+				blacklist = optarg;
+				break;
+			case 'd':
+				daemonize = true;
+				break;
+			case 'l':
+				logsource = optarg;
+				break;
+			case 'r':
+				remember = atoi(optarg);
+				break;
+			case 't':
+				threshold = atoi(optarg);
+				break;
+			case 'u':
+				username = optarg;
+				break;
+			case 'w':
+				whitelist = optarg;
+				break;
+			case 300:
+				blacktime = atoi(optarg);
+				break;
+			case 301:
+				whitetime = atoi(optarg);
+				break;
+			case 'h':
+				usage(program);
+				exit(0);
+				break;
+			case 'v':
+				fprintf(stderr,
+						  PACKAGE_STRING " built on " __DATE__ "\n"
+						  "Copyright (c) 2013 Peter Wu\n");
+				exit(0);
+				break;
+			default:
+				fprintf(stderr, "Error: Unhandled option %d.\n", c);
+				exit(1);
+		};
 	}
-	username = argv[1];
+
+	if (optind < argc) {
+		fprintf(stderr, "Unexpected arguments: ");
+		while (optind < argc)
+			fprintf(stderr, "%s ", argv[optind++]);
+		fprintf(stderr, "\n");
+	}
+
+	/* check for username */
+	if (username == NULL) {
+		fprintf(stderr, "Error: --username needed.\n");
+		exit(1);
+	}
+
+	/* check if log-source arguments are set correctly */
+	if (logsource == NULL) {
+		fprintf(stderr, "Error: --log-source needed.\n");
+		exit(1);
+	} else {
+		if (strcmp(logsource, "systemd") == 0) {
 #ifndef HAVE_SYSTEMD
-	logname = argv[2];
+			fprintf(stderr, "Error: systemd support hasn't been enabled at compile time\n");
 #endif
+		} else {
+#ifdef HAVE_SYSTEMD
+			fprintf(stderr, "Error: --log-source needs to be set to systemd\n");
+#endif
+		}
+	}
 
 	passwd = getpwnam(username);
 	if (!passwd) {
@@ -174,7 +303,7 @@ int main(int argc, char **argv) {
 	uid = passwd->pw_uid;
 	gid = passwd->pw_gid;
 
-	if (log_open(uid, logname))
+	if (log_open(uid, logsource))
 		return 2;
 
 	if (drop_privileges(uid, gid) < 0)
@@ -183,14 +312,17 @@ int main(int argc, char **argv) {
 	if (!blocker_init())
 		return 1;
 
-	patterns_count = patterns_init(&patterns);
-	if (!patterns_count)
+	if ((pattern = pattern_compile(ssh_pattern)) == NULL) {
 		return 1;
+	}
 
 	if (daemonize && daemon(0, 0)) {
 		perror("Failed to daemonize");
 		return 1;
 	}
+
+	/* initialize hash table */
+	hcreate(IPHASH_LENGTH);
 
 	install_signal_handlers();
 
@@ -200,13 +332,20 @@ int main(int argc, char **argv) {
 
 		str_len = log_read_line(str, sizeof str);
 		if (str_len > 0) {
-			process_line(patterns, patterns_count, str, str_len);
+			process_line(pattern, str, str_len);
 		}
 	}
 
+	/* TBD: free keys and data
+	 *		  on program exit, the kernel reclaims all allocated
+	 *		  memory, so this is not strictly necessary */
+
+	/* initialize hash table */
+	hdestroy();
+
 	blocker_fini();
 	log_close();
-	patterns_fini();
+	pcre_free(&pattern);
 
 	return 0;
 }

@@ -6,6 +6,9 @@
  * Licensed under GPLv3 or any latter version.
  */
 
+#ifndef __SSH_BLOCKER_H__
+#define __SSH_BLOCKER_H__
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -15,7 +18,7 @@
 #include <pcre.h>
 
 /* size of the IP address list */
-#define IPLIST_LENGTH 512
+#define IPHASH_LENGTH 512
 
 /* With this number of matches, an IP address will be blocked. range 1-254 */
 #define MATCH_THRESHOLD 2
@@ -42,6 +45,15 @@
 /* time before unblocking in seconds. See also WHITELIST_TIME */
 #define BLOCK_TIME 3600
 
+/* global variables */
+const char   *ssh_pattern;
+unsigned int  remember;
+unsigned int  threshold;
+const char   *whitelist;
+const char   *blacklist;
+unsigned int  whitetime;
+unsigned int  blacktime;
+
 int log_open(uid_t uid, const char *filename);
 int log_read_line(char *buf, size_t buf_size);
 void log_close(void);
@@ -51,13 +63,12 @@ struct log_pattern {
 	pcre *pattern;
 	bool is_whitelist;
 };
-size_t patterns_init(struct log_pattern **dst);
-void patterns_fini(void);
-/* maximum number of groups in regexes */
-#define REGEX_MAX_GROUPS 1
+pcre *pattern_compile(const char *pattern);
+/* maximum number of groups in regex */
+#define REGEX_MAX_GROUPS 3
 
-void iplist_block(const struct in_addr addr);
-void iplist_accept(const struct in_addr addr);
+void iphash_block(const struct in_addr addr);
+void iphash_accept(const struct in_addr addr);
 
 void do_block(const struct in_addr addr);
 void do_unblock(const struct in_addr addr);
@@ -65,3 +76,5 @@ void do_whitelist(const struct in_addr addr);
 bool is_whitelisted(const struct in_addr addr);
 bool blocker_init(void);
 void blocker_fini(void);
+
+#endif /* __SSH_BLOCKER_H__ */

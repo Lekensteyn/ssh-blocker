@@ -12,6 +12,7 @@
 #include <libipset/session.h>
 #include <libipset/data.h>
 #include <stdint.h>
+#include <stdio.h>
 
 static struct ipset_session *session;
 
@@ -33,7 +34,7 @@ try_ipset_cmd(enum ipset_cmd cmd, const char *setname,
 
 	type = ipset_type_get(session, cmd);
 	if (type == NULL) {
-		/* possible reasons for failure: set name does not exist */
+		fprintf(stderr, "possible reasons for failure: set name does not exist\n");
 		return false;
 	}
 
@@ -83,19 +84,19 @@ has_ipset_setname(const char *setname) {
 }
 
 void do_block(const struct in_addr addr) {
-	try_ipset_cmd(IPSET_CMD_ADD, SETNAME_BLACKLIST, &addr, BLOCK_TIME);
+	try_ipset_cmd(IPSET_CMD_ADD, blacklist, &addr, blacktime);
 }
 
 void do_unblock(const struct in_addr addr) {
-	try_ipset_cmd(IPSET_CMD_DEL, SETNAME_BLACKLIST, &addr, 0);
+	try_ipset_cmd(IPSET_CMD_DEL, blacklist, &addr, 0);
 }
 
 void do_whitelist(const struct in_addr addr) {
-	try_ipset_cmd(IPSET_CMD_ADD, SETNAME_WHITELIST, &addr, WHITELIST_TIME);
+	try_ipset_cmd(IPSET_CMD_ADD, whitelist, &addr, whitetime);
 }
 
 bool is_whitelisted(const struct in_addr addr) {
-	return try_ipset_cmd(IPSET_CMD_TEST, SETNAME_WHITELIST, &addr, 0);
+	return try_ipset_cmd(IPSET_CMD_TEST, whitelist, &addr, 0);
 }
 
 bool blocker_init(void) {
@@ -111,16 +112,16 @@ bool blocker_init(void) {
 	 * non-existing rule */
 	ipset_envopt_parse(session, IPSET_ENV_EXIST, NULL);
 
-	if (!has_ipset_setname(SETNAME_WHITELIST) &&
-		!try_ipset_create(SETNAME_WHITELIST, TYPENAME)) {
-		fprintf(stderr, "Failed to create %s: %s\n", SETNAME_WHITELIST,
+	if (!has_ipset_setname(whitelist) &&
+		!try_ipset_create(whitelist, TYPENAME)) {
+		fprintf(stderr, "Failed to create %s: %s\n", whitelist,
 				ipset_session_error(session));
 		ipset_session_fini(session);
 		return false;
 	}
-	if (!has_ipset_setname(SETNAME_BLACKLIST) &&
-		!try_ipset_create(SETNAME_BLACKLIST, TYPENAME)) {
-		fprintf(stderr, "Failed to create %s: %s\n", SETNAME_BLACKLIST,
+	if (!has_ipset_setname(blacklist) &&
+		!try_ipset_create(blacklist, TYPENAME)) {
+		fprintf(stderr, "Failed to create %s: %s\n", blacklist,
 				ipset_session_error(session));
 		ipset_session_fini(session);
 		return false;
