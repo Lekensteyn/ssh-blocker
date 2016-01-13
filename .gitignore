@@ -8,11 +8,18 @@ ssh-blocker
 
 /aclocal.m4
 /autom4te.cache/
-/config.*
+/config.h
 /configure
 /stamp-h1
 
+compile
 depcomp
 install-sh
 missing
 *.tar.gz
+
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+build.ninja
+rules.ninja
