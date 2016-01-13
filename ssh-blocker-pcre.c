@@ -16,6 +16,10 @@
 #include <pwd.h>
 #include <sys/prctl.h>
 
+#ifdef HAVE_CONFIG_H
+#   include "config.h"
+#endif
+
 /* returns true if a valid IP address is matched, false otherwise. 0.0.0.0 is
  * considered an invalid IP address */
 static bool
