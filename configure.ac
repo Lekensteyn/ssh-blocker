@@ -3,7 +3,6 @@ AM_INIT_AUTOMAKE([-Wall foreign])
 AC_PROG_CC
 AC_PROG_SED
 
-AM_CONDITIONAL(WITH_SYSTEMD, [test "x$have_manpages" = "xyes"])
 AC_ARG_ENABLE([systemd], [AS_HELP_STRING([--enable-systemd],
 	[Support for systemd as log provider (default: disabled)])],
 	[], [enable_systemd=no]
