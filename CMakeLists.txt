@@ -8,6 +8,8 @@ set(check_cflags
     -fPIE
     -fstack-protector-all
     -Wall -Wextra -Wlogical-op -Wunused-macros -Wstack-protector -Wformat-security
+
+    -zrelro -znow
 )
 # _FORTIFY_SOURCE requires optimization
 if(CMAKE_BUILD_TYPE MATCHES ".*[Rr][Ee][Ll].*")
