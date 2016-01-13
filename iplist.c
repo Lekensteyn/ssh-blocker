@@ -1,7 +1,7 @@
 /**
  * Manage a set of IP addresses, blocking them if certain limits are reached.
  *
- * Copyright (C) 2013 Peter Wu <lekensteyn@gmail.com>
+ * Copyright (C) 2013-2016 Peter Wu <peter@lekensteyn.nl>
  * Licensed under GPLv3 or any latter version.
  */
 

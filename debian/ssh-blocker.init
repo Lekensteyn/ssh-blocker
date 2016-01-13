@@ -10,7 +10,7 @@
 # Description:       Read a log pipe and block attacks with ipset.
 ### END INIT INFO
 
-# Author: Peter Wu <lekensteyn@gmail.com>
+# Author: Peter Wu <peter@lekensteyn.nl>
 
 # PATH should only include /usr/* if it runs after the mountnfs.sh script
 PATH=/sbin:/usr/sbin:/bin:/usr/bin

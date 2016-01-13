@@ -2,7 +2,7 @@
  * Read SSH log messages from a FIFO pipe and block IP addresses exceeding a
  * certain threshold by adding it with ipset.
  *
- * Copyright (C) 2013 Peter Wu <lekensteyn@gmail.com>
+ * Copyright (C) 2013-2016 Peter Wu <peter@lekensteyn.nl>
  * Licensed under GPLv3 or any latter version.
  */
 

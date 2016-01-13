@@ -2,7 +2,7 @@
  * Read SSH log messages from a FIFO pipe and block IP addresses exceeding a
  * certain threshold by adding it with ipset.
  *
- * Copyright (C) 2013 Peter Wu <lekensteyn@gmail.com>
+ * Copyright (C) 2013-2016 Peter Wu <peter@lekensteyn.nl>
  * Licensed under GPLv3 or any latter version.
  */
 #define _GNU_SOURCE
@@ -158,7 +158,7 @@ int main(int argc, char **argv) {
 		printf("Usage: %s username log-pipe-filename\n", program);
 #endif
 		puts(PACKAGE_STRING " built on " __DATE__);
-		puts("Copyright (c) 2013 Peter Wu");
+		puts("Copyright (c) 2013-2016 Peter Wu");
 		return 2;
 	}
 	username = argv[1];
