@@ -1,4 +1,6 @@
 * Fixed argument order in Debian init script (regression from 0.2).
+* Added ssh.service besides sshd.service (for Debian Jessie).
+* Added support for building with CMake.
 
 Version 0.2 - 31 January 2013
 
