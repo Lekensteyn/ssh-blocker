@@ -12,7 +12,10 @@
 #include "ssh-blocker.h"
 
 /* systemd service filter for the SSH daemon */
-#define MATCH "_SYSTEMD_UNIT=sshd.service"
+static const char *matches[] = {
+	"_SYSTEMD_UNIT=sshd.service",     /* Arch Linux */
+	"_SYSTEMD_UNIT=ssh.service",      /* Debian */
+};
 
 static sd_journal *j;
 
@@ -27,15 +30,18 @@ int
 log_open(uid_t uid, const char *filename) {
 	int r;
 	(void) uid; (void) filename;
+	unsigned i;
 
 	r = sd_journal_open(&j, SD_JOURNAL_LOCAL_ONLY | SD_JOURNAL_SYSTEM);
 	if (r < 0) {
 		RET_FAIL("Failed to open journal");
 	}
 
-	r = sd_journal_add_match(j, MATCH, 0);
-	if (r < 0) {
-		RET_FAIL("Failed to restrict output to %s", MATCH);
+	for (i = 0; i < sizeof(matches) / sizeof(*matches); i++) {
+		r = sd_journal_add_match(j, matches[i], 0);
+		if (r < 0) {
+			RET_FAIL("Failed to restrict output to %s", matches[i]);
+		}
 	}
 
 	r = sd_journal_seek_tail(j);
