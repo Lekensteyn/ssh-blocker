@@ -43,6 +43,7 @@ log_open(uid_t uid, const char *filename) {
 			RET_FAIL("Failed to restrict output to %s", matches[i]);
 		}
 	}
+	sd_journal_add_disjunction(j);
 
 	r = sd_journal_seek_tail(j);
 	if (r < 0) {
