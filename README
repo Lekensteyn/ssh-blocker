@@ -89,7 +89,8 @@ USAGE
     "username" is the user under which the program should run. Do not run this
     program under someone like "nobody" because all "nobody" users can kill this
     program, write junk to the FIFO or ptrace it if settings/permissions allow
-    it.
+    it. When using the systemd (journal) source, be sure that this user is a
+    member of the 'systemd-journal' group).
 
     (only applicable in log pipe configuration)
     "log-pipe-file" must be replaced by the path to a named pipe. If it does not
