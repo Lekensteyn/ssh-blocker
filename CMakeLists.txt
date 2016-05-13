@@ -41,7 +41,7 @@ set(ssh-blocker_LIBS
 )
 
 if(ENABLE_SYSTEMD)
-    pkg_check_modules(systemd REQUIRED libsystemd-journal)
+    pkg_search_module(systemd REQUIRED libsystemd>=209 libsystemd-journal)
     set(HAVE_SYSTEMD 1)
     list(APPEND ssh-blocker_SOURCES log-systemd.c)
     list(APPEND ssh-blocker_LIBS ${systemd_LIBRARIES})
@@ -59,3 +59,6 @@ set_target_properties(ssh-blocker PROPERTIES
 # Make definitions such as HAVE_SYSTEMD available.
 include_directories("${CMAKE_CURRENT_BINARY_DIR}")
 configure_file(config.h.cmake config.h)
+
+include(GNUInstallDirs)
+install(TARGETS ssh-blocker RUNTIME DESTINATION ${CMAKE_INSTALL_SBINDIR})
