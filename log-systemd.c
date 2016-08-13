@@ -102,7 +102,7 @@ log_read_line(char *buf, size_t buf_size) {
 	d += sizeof("MESSAGE=") - 1;
 	l -= sizeof("MESSAGE=") - 1;
 
-	if (l <= 0) {
+	if ((int)l <= 0) {
 		/* empty message or systemd bug ? */
 		return 0;
 	}
