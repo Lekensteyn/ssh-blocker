@@ -1,0 +1,7 @@
+#!/bin/sh
+# Suitable for running test.sh as unprivileged user
+# (when using the "pipe" provider).
+# Depends on libcap newer than 2.25 for the --addamb option.
+
+sudo -E capsh --caps="cap_net_admin+eip cap_setuid,cap_setgid,cap_setpcap+ep" \
+    --keep=1 --user=$USER --addamb=cap_net_admin -- "$@"
