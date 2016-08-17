@@ -24,11 +24,21 @@ static struct ipset_session *session;
 static bool
 try_ipset_cmd(enum ipset_cmd cmd, const char *setname,
 		const struct in_addr *addr, uint32_t timeout) {
+	const struct ipset_type *type;
+	uint8_t family;
 	int r;
 	r = ipset_session_data_set(session, IPSET_SETNAME, setname);
 	/* since the IPSET_SETNAME option is valid, this should never fail */
 	assert(r == 0);
 
+	type = ipset_type_get(session, cmd);
+	if (type == NULL) {
+		/* possible reasons for failure: set name does not exist */
+		return false;
+	}
+
+	family = NFPROTO_IPV4;
+	ipset_session_data_set(session, IPSET_OPT_FAMILY, &family);
 	ipset_session_data_set(session, IPSET_OPT_IP, addr);
 	if (timeout)
 		ipset_session_data_set(session, IPSET_OPT_TIMEOUT, &timeout);
