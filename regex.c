@@ -17,7 +17,7 @@ static struct log_pattern matches[] = {
 	}, {
 		.regex = "User .{0,100} from " IP_PATTERN " not allowed because not listed in AllowUsers$",
 	}, {
-		.regex = "Accepted publickey for .{0,100} from " IP_PATTERN " port [0-9]{1,5} ssh2$",
+		.regex = "Accepted publickey for .{0,100} from " IP_PATTERN " port [0-9]{1,5} ssh2",
 		.is_whitelist = true,
 	},
 };
